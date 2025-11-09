@@ -135,4 +135,54 @@ public class StorageService : IStorageService
             return new List<int>();
         }
     }
+
+    /// <summary>
+    /// Uploads weekly lines Excel file to blob storage
+    /// Parses the Excel and creates JSON cache for API performance
+    /// </summary>
+    public async Task<string> UploadWeeklyLinesAsync(
+        Stream excelStream,
+        int week,
+        int year,
+        CancellationToken cancellationToken = default)
+    {
+        // Ensure container exists
+        await _containerClient.CreateIfNotExistsAsync(
+            PublicAccessType.None,
+            cancellationToken: cancellationToken);
+
+        // Parse the Excel file
+        excelStream.Position = 0;
+        var weeklyLines = await _excelService.ParseWeeklyLinesAsync(excelStream, cancellationToken);
+
+        // Override week and year with provided parameters (in case file doesn't have them)
+        weeklyLines.Week = week;
+        weeklyLines.Year = year;
+
+        // Upload Excel file
+        var excelBlobName = $"{LinesFolder}/week-{week}-{year}.xlsx";
+        var excelBlobClient = _containerClient.GetBlobClient(excelBlobName);
+
+        excelStream.Position = 0;
+        await excelBlobClient.UploadAsync(
+            excelStream,
+            overwrite: true,
+            cancellationToken: cancellationToken);
+
+        // Upload parsed JSON for fast API access
+        var jsonBlobName = $"{LinesFolder}/week-{week}-{year}.json";
+        var jsonBlobClient = _containerClient.GetBlobClient(jsonBlobName);
+
+        var json = JsonSerializer.Serialize(weeklyLines, new JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+
+        await jsonBlobClient.UploadAsync(
+            BinaryData.FromString(json),
+            overwrite: true,
+            cancellationToken: cancellationToken);
+
+        return excelBlobClient.Uri.ToString();
+    }
 }

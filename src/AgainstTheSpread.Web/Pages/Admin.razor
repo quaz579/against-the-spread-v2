@@ -1,0 +1,174 @@
+@page "/admin"
+@using AgainstTheSpread.Web.Services
+@using Microsoft.AspNetCore.Components.Forms
+@inject ApiService ApiService
+@inject IJSRuntime JS
+
+<PageTitle>Admin - Upload Lines</PageTitle>
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <h1 class="mb-4">🏈 Admin - Upload Weekly Lines</h1>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <strong>Error!</strong> @errorMessage
+                    <button type="button" class="btn-close" @onclick="ClearError"></button>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(successMessage))
+            {
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <strong>Success!</strong> @successMessage
+                    <button type="button" class="btn-close" @onclick="ClearSuccess"></button>
+                </div>
+            }
+
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Upload Game Lines</h5>
+                    <p class="text-muted">Upload an Excel file (.xlsx) containing the weekly betting lines.</p>
+
+                    <div class="mb-3">
+                        <label for="weekInput" class="form-label">Week Number</label>
+                        <input type="number" class="form-control" id="weekInput" @bind="weekNumber" min="1" max="17"
+                            placeholder="Enter week number (1-17)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="yearInput" class="form-label">Year</label>
+                        <input type="number" class="form-control" id="yearInput" @bind="year" min="2024" max="2030"
+                            placeholder="Enter year" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="fileInput" class="form-label">Excel File</label>
+                        <InputFile class="form-control" id="fileInput" OnChange="OnFileSelected"
+                            accept=".xlsx,.xls,.csv" />
+                        <div class="form-text">
+                            Select an Excel file with game lines. Must include: Team, Opponent, Line, Date/Time.
+                        </div>
+                    </div>
+
+                    @if (selectedFile != null)
+                    {
+                        <div class="alert alert-info">
+                            <strong>Selected file:</strong> @selectedFile.Name (@(selectedFile.Size / 1024) KB)
+                        </div>
+                    }
+
+                    <button class="btn btn-primary btn-lg w-100" @onclick="UploadFile"
+                        disabled="@(isUploading || selectedFile == null || weekNumber < 1)">
+                        @if (isUploading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <span>Uploading...</span>
+                        }
+                        else
+                        {
+                            <span>📤 Upload Lines</span>
+                        }
+                    </button>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mt-4">
+                <div class="card-body">
+                    <h5 class="card-title">📋 File Format Requirements</h5>
+                    <ul class="mb-0">
+                        <li>Excel file (.xlsx or .xls) or CSV</li>
+                        <li>Must contain columns: Team, Opponent, Line, Date/Time</li>
+                        <li>Line format: "Team -7.5" or "Opponent +3.5"</li>
+                        <li>Date format: "MM/DD/YYYY HH:MM" or similar</li>
+                        <li>Each row represents one game</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mt-4">
+                <div class="card-body">
+                    <h5 class="card-title">💡 Tips</h5>
+                    <ul class="mb-0">
+                        <li>Upload files on Sunday evening for the upcoming week</li>
+                        <li>Double-check the week number before uploading</li>
+                        <li>You can re-upload to overwrite existing lines</li>
+                        <li>Users will see the new lines immediately after upload</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int weekNumber = 1;
+    private int year = DateTime.Now.Year;
+    private IBrowserFile? selectedFile;
+    private bool isUploading = false;
+    private string? errorMessage;
+    private string? successMessage;
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        ClearMessages();
+    }
+
+    private async Task UploadFile()
+    {
+        if (selectedFile == null || weekNumber < 1)
+            return;
+
+        isUploading = true;
+        ClearMessages();
+
+        try
+        {
+            // Read file stream
+            using var stream = selectedFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024); // 10 MB limit
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            memoryStream.Position = 0;
+
+            // Upload to API
+            var response = await ApiService.UploadLinesAsync(weekNumber, year, memoryStream, selectedFile.Name);
+
+            if (response?.Success == true)
+            {
+                successMessage = response.Message;
+                selectedFile = null;
+            }
+            else
+            {
+                errorMessage = "Failed to upload file. Please check the format and try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error uploading file: {ex.Message}";
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+
+    private void ClearMessages()
+    {
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private void ClearError()
+    {
+        errorMessage = null;
+    }
+
+    private void ClearSuccess()
+    {
+        successMessage = null;
+    }
+}

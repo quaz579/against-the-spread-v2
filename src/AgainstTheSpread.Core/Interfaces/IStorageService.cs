@@ -44,4 +44,18 @@ public interface IStorageService
     Task<List<int>> GetAvailableWeeksAsync(
         int year,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Uploads weekly lines Excel file to blob storage
+    /// </summary>
+    /// <param name="excelStream">Excel file stream</param>
+    /// <param name="week">Week number</param>
+    /// <param name="year">Year</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>URL of the uploaded blob</returns>
+    Task<string> UploadWeeklyLinesAsync(
+        Stream excelStream,
+        int week,
+        int year,
+        CancellationToken cancellationToken = default);
 }
