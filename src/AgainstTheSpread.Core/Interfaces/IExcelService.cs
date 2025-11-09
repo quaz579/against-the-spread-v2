@@ -11,13 +11,15 @@ public interface IExcelService
     /// Parses an Excel file containing weekly betting lines
     /// </summary>
     /// <param name="excelStream">Stream containing the Excel file data</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>WeeklyLines object with parsed game data</returns>
-    WeeklyLines ParseLinesFromExcel(Stream excelStream);
+    Task<WeeklyLines> ParseWeeklyLinesAsync(Stream excelStream, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Generates an Excel file with user's picks in the expected format
     /// </summary>
-    /// <param name="picks">User's picks to include in the Excel file</param>
-    /// <returns>Stream containing the generated Excel file</returns>
-    Stream GeneratePicksExcel(UserPicks picks);
+    /// <param name="userPicks">User's picks to include in the Excel file</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Byte array containing the generated Excel file</returns>
+    Task<byte[]> GeneratePicksExcelAsync(UserPicks userPicks, CancellationToken cancellationToken = default);
 }
