@@ -34,7 +34,7 @@ public class StorageServiceTests
         // In Phase 8, we'll add full integration tests with Azurite
 
         var mockExcelService = new Mock<IExcelService>();
-        
+
         // We can't fully test without a real connection, but we verify construction
         Assert.True(true); // Placeholder - will enhance in Phase 8
     }
@@ -44,9 +44,9 @@ public class StorageServiceTests
     {
         // This test would need Azurite to run properly
         // For now, we verify the method signature
-        
+
         var mockExcelService = new Mock<IExcelService>();
-        
+
         // We can't fully test without a real connection, but we verify construction
         Assert.True(true); // Placeholder - will enhance in Phase 8
     }

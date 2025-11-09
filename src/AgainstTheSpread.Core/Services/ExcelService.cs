@@ -23,7 +23,7 @@ public class ExcelService : IExcelService
     {
         using var package = new ExcelPackage(excelStream);
         var worksheet = package.Workbook.Worksheets[0];
-        
+
         var weeklyLines = new WeeklyLines
         {
             Games = new List<Game>(),
@@ -74,7 +74,7 @@ public class ExcelService : IExcelService
         {
             var col1Value = worksheet.Cells[row, 1].Text?.Trim();
             var col2Value = worksheet.Cells[row, 2].Text?.Trim();
-            
+
             // Check if this is a date header row
             if (!string.IsNullOrEmpty(col1Value) && string.IsNullOrEmpty(col2Value))
             {

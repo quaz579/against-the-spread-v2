@@ -103,16 +103,16 @@ public class ExcelServiceTests : IDisposable
         // Verify the content
         using var package = new ExcelPackage(new MemoryStream(result));
         var worksheet = package.Workbook.Worksheets[0];
-        
+
         // Row 1 and 2 should be empty
         worksheet.Cells[1, 1].Text.Should().BeEmpty();
         worksheet.Cells[2, 1].Text.Should().BeEmpty();
-        
+
         // Row 3 should have headers
         worksheet.Cells[3, 1].Text.Should().Be("Name");
         worksheet.Cells[3, 2].Text.Should().Be("Pick 1");
         worksheet.Cells[3, 7].Text.Should().Be("Pick 6");
-        
+
         // Row 4 should have user data
         worksheet.Cells[4, 1].Text.Should().Be("Gary Harris");
         worksheet.Cells[4, 2].Text.Should().Be("Notre Dame");
