@@ -33,5 +33,5 @@ public class WeeklyLines
     /// <summary>
     /// Validates that the weekly lines data is complete
     /// </summary>
-    public bool IsValid() => Week > 0 && Week <= 14 && Games.Any() && Year >= 2020;
+    public bool IsValid() => Week > 0 && Week <= 14 && Games != null && Games.Any() && Year >= 2020;
 }
