@@ -1,0 +1,282 @@
+@page "/picks"
+@using AgainstTheSpread.Core.Models
+@using AgainstTheSpread.Web.Services
+@using Microsoft.JSInterop
+@inject ApiService ApiService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Make Your Picks - Against The Spread</PageTitle>
+
+<div class="container mt-4">
+    <h1 class="mb-4">🏈 Make Your Weekly Picks</h1>
+
+    @if (isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading games...</p>
+        </div>
+    }
+    else if (errorMessage != null)
+    {
+        <div class="alert alert-danger" role="alert">
+            <strong>Error:</strong> @errorMessage
+        </div>
+        <button class="btn btn-primary" @onclick="LoadAvailableWeeks">Retry</button>
+    }
+    else if (currentWeekLines == null)
+    {
+        <!-- Week Selection -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h3 class="card-title">Select Week and Enter Your Name</h3>
+                
+                <div class="mb-3">
+                    <label for="userName" class="form-label">Your Name</label>
+                    <input type="text" class="form-control" id="userName" @bind="userName" 
+                           placeholder="Enter your full name" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="year" class="form-label">Season</label>
+                    <select class="form-select" id="year" @bind="selectedYear" @bind:after="LoadAvailableWeeks">
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="week" class="form-label">Week</label>
+                    <select class="form-select" id="week" @bind="selectedWeek" disabled="@(availableWeeks.Count == 0)">
+                        <option value="0">-- Select Week --</option>
+                        @foreach (var week in availableWeeks)
+                        {
+                            <option value="@week">Week @week</option>
+                        }
+                    </select>
+                </div>
+
+                <button class="btn btn-primary btn-lg" @onclick="LoadGames" 
+                        disabled="@(string.IsNullOrWhiteSpace(userName) || selectedWeek == 0)">
+                    Continue to Picks
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Game Selection -->
+        <div class="mb-3">
+            <button class="btn btn-secondary" @onclick="GoBack">
+                ← Back to Week Selection
+            </button>
+        </div>
+
+        <div class="alert alert-info" role="alert">
+            <strong>@userName</strong> - Week @selectedWeek, @selectedYear
+            <br />
+            <strong>Selected: @selectedPicks.Count / 6 picks</strong>
+            @if (selectedPicks.Count == 6)
+            {
+                <span class="text-success ms-2">✓ Ready to download!</span>
+            }
+        </div>
+
+        <div class="row">
+            @foreach (var game in currentWeekLines.Games)
+            {
+                var isFavoriteSelected = selectedPicks.Contains(game.Favorite);
+                var isUnderdogSelected = selectedPicks.Contains(game.Underdog);
+                var gameDate = game.GameDate.ToString("ddd M/d, h:mm tt");
+
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <small class="text-muted">@gameDate</small>
+                            <div class="d-grid gap-2 mt-2">
+                                <button class="btn @(isFavoriteSelected ? "btn-success" : "btn-outline-primary")"
+                                        @onclick="() => TogglePick(game.Favorite)"
+                                        disabled="@(!isFavoriteSelected && selectedPicks.Count >= 6)">
+                                    @game.FavoriteDisplay
+                                    @if (isFavoriteSelected) { <span>✓</span> }
+                                </button>
+                                
+                                <div class="text-center">
+                                    <small class="text-muted">@game.VsAt</small>
+                                </div>
+                                
+                                <button class="btn @(isUnderdogSelected ? "btn-success" : "btn-outline-secondary")"
+                                        @onclick="() => TogglePick(game.Underdog)"
+                                        disabled="@(!isUnderdogSelected && selectedPicks.Count >= 6)">
+                                    @game.UnderdogDisplay
+                                    @if (isUnderdogSelected) { <span>✓</span> }
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (selectedPicks.Count == 6)
+        {
+            <div class="fixed-bottom bg-white border-top p-3 shadow">
+                <div class="container">
+                    <div class="d-grid">
+                        <button class="btn btn-success btn-lg" @onclick="DownloadPicks" disabled="@isDownloading">
+                            @if (isDownloading)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                <span>Generating Excel...</span>
+                            }
+                            else
+                            {
+                                <span>📥 Download Your Picks (Excel)</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private string userName = "";
+    private int selectedYear = DateTime.Now.Year;
+    private int selectedWeek = 0;
+    private List<int> availableWeeks = new();
+    private WeeklyLines? currentWeekLines = null;
+    private List<string> selectedPicks = new();
+    private bool isLoading = true;
+    private bool isDownloading = false;
+    private string? errorMessage = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAvailableWeeks();
+    }
+
+    private async Task LoadAvailableWeeks()
+    {
+        isLoading = true;
+        errorMessage = null;
+        
+        try
+        {
+            availableWeeks = await ApiService.GetAvailableWeeksAsync(selectedYear);
+            
+            if (availableWeeks.Count == 0)
+            {
+                errorMessage = $"No weeks available for {selectedYear}. Please check back later or contact your administrator.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load available weeks: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadGames()
+    {
+        if (string.IsNullOrWhiteSpace(userName) || selectedWeek == 0)
+            return;
+
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            currentWeekLines = await ApiService.GetLinesAsync(selectedWeek, selectedYear);
+            
+            if (currentWeekLines == null)
+            {
+                errorMessage = $"Could not load games for Week {selectedWeek}. Please try again.";
+                currentWeekLines = null;
+            }
+            else
+            {
+                selectedPicks.Clear();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load games: {ex.Message}";
+            currentWeekLines = null;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void GoBack()
+    {
+        currentWeekLines = null;
+        selectedPicks.Clear();
+    }
+
+    private void TogglePick(string team)
+    {
+        if (selectedPicks.Contains(team))
+        {
+            selectedPicks.Remove(team);
+        }
+        else if (selectedPicks.Count < 6)
+        {
+            selectedPicks.Add(team);
+        }
+    }
+
+    private async Task DownloadPicks()
+    {
+        if (selectedPicks.Count != 6)
+            return;
+
+        isDownloading = true;
+
+        try
+        {
+            var userPicks = new UserPicks
+            {
+                Name = userName,
+                Week = selectedWeek,
+                Year = selectedYear,
+                Picks = selectedPicks,
+                SubmittedAt = DateTime.UtcNow
+            };
+
+            var excelBytes = await ApiService.SubmitPicksAsync(userPicks);
+
+            if (excelBytes != null)
+            {
+                // Download file using JavaScript interop
+                var fileName = $"{userName.Replace(" ", "_")}_Week_{selectedWeek}_Picks.xlsx";
+                await JSRuntime.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(excelBytes));
+                
+                // Show success message and reset
+                await JSRuntime.InvokeVoidAsync("alert", "✅ Your picks have been downloaded successfully!");
+                GoBack();
+            }
+            else
+            {
+                errorMessage = "Failed to generate picks file. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error downloading picks: {ex.Message}";
+        }
+        finally
+        {
+            isDownloading = false;
+        }
+    }
+}
