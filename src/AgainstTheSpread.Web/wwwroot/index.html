@@ -3,7 +3,8 @@
 
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="description" content="Make your weekly college football picks against the spread" />
     <meta name="theme-color" content="#0d6efd" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -42,12 +43,12 @@
             navigator.serviceWorker.register('service-worker.js', { scope: './' })
                 .then(registration => {
                     console.log('Service Worker registered with scope:', registration.scope);
-                    
+
                     // Check for updates periodically
                     setInterval(() => {
                         registration.update();
                     }, 60000); // Check every minute
-                    
+
                     // Handle updates
                     registration.addEventListener('updatefound', () => {
                         const newWorker = registration.installing;

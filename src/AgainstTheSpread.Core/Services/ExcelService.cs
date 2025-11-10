@@ -69,7 +69,7 @@ public class ExcelService : IExcelService
 
         // Search more columns to handle different indentation levels (Week 1, Week 11, etc.)
         int maxSearchCol = Math.Min(worksheet.Dimension?.End.Column ?? 20, 20);
-        
+
         for (int row = 1; row <= 20; row++)
         {
             // Search across columns for the header

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Generate Football Icons</title>
+</head>
+
+<body>
+    <canvas id="canvas512" width="512" height="512"></canvas>
+    <canvas id="canvas192" width="192" height="192"></canvas>
+    <canvas id="canvasFavicon" width="32" height="32"></canvas>
+
+    <script>
+        function drawFootball(canvas, size) {
+            const ctx = canvas.getContext('2d');
+            const centerX = size / 2;
+            const centerY = size / 2;
+            const width = size * 0.6;
+            const height = size * 0.8;
+
+            // Background
+            ctx.fillStyle = '#0d6efd';
+            ctx.fillRect(0, 0, size, size);
+
+            // Football shape (pointed oval)
+            ctx.fillStyle = '#8B4513';
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY, width / 2, height / 2, 0, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Laces background stripe
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(centerX - width * 0.08, centerY - height * 0.25, width * 0.16, height * 0.5);
+
+            // Laces
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = size * 0.02;
+            const laceCount = 5;
+            for (let i = 0; i < laceCount; i++) {
+                const y = centerY - height * 0.18 + (i * height * 0.09);
+                ctx.beginPath();
+                ctx.moveTo(centerX - width * 0.08, y);
+                ctx.lineTo(centerX - width * 0.15, y);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(centerX + width * 0.08, y);
+                ctx.lineTo(centerX + width * 0.15, y);
+                ctx.stroke();
+            }
+
+            // Center line
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = size * 0.015;
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY - height * 0.2);
+            ctx.lineTo(centerX, centerY + height * 0.2);
+            ctx.stroke();
+        }
+
+        // Generate all sizes
+        drawFootball(document.getElementById('canvas512'), 512);
+        drawFootball(document.getElementById('canvas192'), 192);
+        drawFootball(document.getElementById('canvasFavicon'), 32);
+
+        // Download function
+        function downloadCanvas(canvasId, filename) {
+            const canvas = document.getElementById(canvasId);
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        // Auto-download after a short delay
+        setTimeout(() => {
+            downloadCanvas('canvas512', 'icon-512.png');
+            setTimeout(() => {
+                downloadCanvas('canvas192', 'icon-192.png');
+                setTimeout(() => {
+                    downloadCanvas('canvasFavicon', 'favicon.png');
+                }, 500);
+            }, 500);
+        }, 500);
+    </script>
+</body>
+
+</html>
