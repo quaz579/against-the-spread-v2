@@ -37,16 +37,21 @@ public class ExcelService : IExcelService
         {
             for (int row = 1; row <= 10; row++)
             {
-                var cellValue = worksheet.Cells[row, 1].Text?.Trim();
-                if (!string.IsNullOrEmpty(cellValue) && cellValue.StartsWith("WEEK ", StringComparison.OrdinalIgnoreCase))
+                // Search across columns for "WEEK N" format
+                for (int col = 1; col <= 10; col++)
                 {
-                    var weekPart = cellValue.Replace("WEEK ", "", StringComparison.OrdinalIgnoreCase).Trim();
-                    if (int.TryParse(weekPart, out int fileWeek))
+                    var cellValue = worksheet.Cells[row, col].Text?.Trim();
+                    if (!string.IsNullOrEmpty(cellValue) && cellValue.StartsWith("WEEK ", StringComparison.OrdinalIgnoreCase))
                     {
-                        weeklyLines.Week = fileWeek;
-                        break;
+                        var weekPart = cellValue.Replace("WEEK ", "", StringComparison.OrdinalIgnoreCase).Trim();
+                        if (int.TryParse(weekPart, out int fileWeek))
+                        {
+                            weeklyLines.Week = fileWeek;
+                            break;
+                        }
                     }
                 }
+                if (weeklyLines.Week > 0) break;
             }
 
             if (weeklyLines.Week == 0)
@@ -108,6 +113,16 @@ public class ExcelService : IExcelService
             }
         }
 
+        // If no date found before favorite, check the same column as favorite for dates
+        if (dateCol == 0)
+        {
+            var cellValue = worksheet.Cells[headerRow + 1, favoriteCol].Text?.Trim();
+            if (!string.IsNullOrEmpty(cellValue) && DateTime.TryParse(cellValue, out _))
+            {
+                dateCol = favoriteCol;
+            }
+        }
+
         // Parse games starting after header row
         DateTime? currentGameDate = null;
         for (int row = headerRow + 1; row <= worksheet.Dimension.End.Row; row++)
@@ -143,6 +158,18 @@ public class ExcelService : IExcelService
             var lineText = worksheet.Cells[row, lineCol].Text?.Trim();
             var vsAt = vsAtCol > 0 ? worksheet.Cells[row, vsAtCol].Text?.Trim() : "vs";
             var underdog = worksheet.Cells[row, underdogCol].Text?.Trim();
+
+            // Normalize vs/at values (handle typos like "a" instead of "at")
+            if (!string.IsNullOrEmpty(vsAt))
+            {
+                vsAt = vsAt.ToLowerInvariant();
+                if (vsAt == "a") vsAt = "at";
+                else if (vsAt == "v") vsAt = "vs";
+            }
+            else
+            {
+                vsAt = "vs";
+            }
 
             // Skip rows without complete game data
             if (string.IsNullOrEmpty(lineText) || string.IsNullOrEmpty(underdog))
