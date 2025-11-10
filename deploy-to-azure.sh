@@ -3,9 +3,9 @@ set -e
 
 # Variables
 PROJECT_NAME="against-the-spread"
-LOCATION="eastus"
+LOCATION="centralus"
 RESOURCE_GROUP="${PROJECT_NAME}-rg"
-STORAGE_ACCOUNT="${PROJECT_NAME}st$(openssl rand -hex 4)"
+STORAGE_ACCOUNT="stprdagnstthesprd"
 
 echo "🚀 Deploying Against The Spread to Azure..."
 echo ""
