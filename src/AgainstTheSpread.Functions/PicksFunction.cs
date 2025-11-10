@@ -66,7 +66,7 @@ public class PicksFunction
             // Return Excel file
             var response = req.CreateResponse(HttpStatusCode.OK);
             response.Headers.Add("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-            response.Headers.Add("Content-Disposition", 
+            response.Headers.Add("Content-Disposition",
                 $"attachment; filename=\"{userPicks.Name.Replace(" ", "_")}_Week_{userPicks.Week}_Picks.xlsx\"");
             await response.Body.WriteAsync(excelBytes);
             return response;
