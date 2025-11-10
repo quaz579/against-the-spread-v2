@@ -67,10 +67,13 @@ public class ExcelService : IExcelService
         int vsAtCol = 0;
         int underdogCol = 0;
 
+        // Search more columns to handle different indentation levels (Week 1, Week 11, etc.)
+        int maxSearchCol = Math.Min(worksheet.Dimension?.End.Column ?? 20, 20);
+        
         for (int row = 1; row <= 20; row++)
         {
             // Search across columns for the header
-            for (int col = 1; col <= 10; col++)
+            for (int col = 1; col <= maxSearchCol; col++)
             {
                 var cellValue = worksheet.Cells[row, col].Text?.Trim();
                 if (cellValue?.Equals("Favorite", StringComparison.OrdinalIgnoreCase) == true)
@@ -78,8 +81,9 @@ public class ExcelService : IExcelService
                     headerRow = row;
                     favoriteCol = col;
 
-                    // Find the other columns relative to Favorite
-                    for (int searchCol = col; searchCol <= col + 5; searchCol++)
+                    // Find the other columns relative to Favorite (search up to 10 columns ahead)
+                    int maxRelativeSearch = Math.Min(col + 10, worksheet.Dimension?.End.Column ?? col + 10);
+                    for (int searchCol = col; searchCol <= maxRelativeSearch; searchCol++)
                     {
                         var headerText = worksheet.Cells[row, searchCol].Text?.Trim();
                         if (headerText?.Equals("Line", StringComparison.OrdinalIgnoreCase) == true)
