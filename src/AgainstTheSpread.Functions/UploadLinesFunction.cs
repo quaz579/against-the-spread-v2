@@ -62,7 +62,7 @@ public class UploadLinesFunction
 
             // Read and validate the Excel file
             using var stream = file.OpenReadStream();
-            var weeklyLines = await _excelService.ParseWeeklyLinesAsync(stream);
+            var weeklyLines = await _excelService.ParseWeeklyLinesAsync(stream, week, year);
 
             if (weeklyLines.Games.Count == 0)
             {

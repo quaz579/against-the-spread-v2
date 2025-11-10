@@ -17,9 +17,9 @@ public class ExcelService : IExcelService
 
     /// <summary>
     /// Parses the weekly lines Excel file uploaded by admin
-    /// Format: Empty rows at top, then "WEEK N", then blank row, then headers, then games grouped by date
+    /// Format: Empty rows at top, then "WEEK N" (optional), then blank row, then headers, then games grouped by date
     /// </summary>
-    public async Task<WeeklyLines> ParseWeeklyLinesAsync(Stream excelStream, CancellationToken cancellationToken = default)
+    public async Task<WeeklyLines> ParseWeeklyLinesAsync(Stream excelStream, int? week = null, int? year = null, CancellationToken cancellationToken = default)
     {
         using var package = new ExcelPackage(excelStream);
         var worksheet = package.Workbook.Worksheets[0];
@@ -28,71 +28,121 @@ public class ExcelService : IExcelService
         {
             Games = new List<Game>(),
             UploadedAt = DateTime.UtcNow,
-            Year = DateTime.UtcNow.Year
+            Week = week ?? 0,
+            Year = year ?? DateTime.UtcNow.Year
         };
 
-        // Find the week number (format: "WEEK N")
-        for (int row = 1; row <= 10; row++)
+        // Try to find the week number from file if not provided (format: "WEEK N")
+        if (!week.HasValue)
         {
-            var cellValue = worksheet.Cells[row, 1].Text?.Trim();
-            if (!string.IsNullOrEmpty(cellValue) && cellValue.StartsWith("WEEK ", StringComparison.OrdinalIgnoreCase))
+            for (int row = 1; row <= 10; row++)
             {
-                var weekPart = cellValue.Replace("WEEK ", "", StringComparison.OrdinalIgnoreCase).Trim();
-                if (int.TryParse(weekPart, out int week))
+                var cellValue = worksheet.Cells[row, 1].Text?.Trim();
+                if (!string.IsNullOrEmpty(cellValue) && cellValue.StartsWith("WEEK ", StringComparison.OrdinalIgnoreCase))
                 {
-                    weeklyLines.Week = week;
+                    var weekPart = cellValue.Replace("WEEK ", "", StringComparison.OrdinalIgnoreCase).Trim();
+                    if (int.TryParse(weekPart, out int fileWeek))
+                    {
+                        weeklyLines.Week = fileWeek;
+                        break;
+                    }
+                }
+            }
+
+            if (weeklyLines.Week == 0)
+            {
+                throw new FormatException("Could not find week number in Excel file. Expected 'WEEK N' format or week parameter.");
+            }
+        }
+
+        // Find the header row dynamically by searching for "Favorite" in any column
+        int headerRow = 0;
+        int favoriteCol = 0;
+        int lineCol = 0;
+        int vsAtCol = 0;
+        int underdogCol = 0;
+
+        for (int row = 1; row <= 20; row++)
+        {
+            // Search across columns for the header
+            for (int col = 1; col <= 10; col++)
+            {
+                var cellValue = worksheet.Cells[row, col].Text?.Trim();
+                if (cellValue?.Equals("Favorite", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    headerRow = row;
+                    favoriteCol = col;
+
+                    // Find the other columns relative to Favorite
+                    for (int searchCol = col; searchCol <= col + 5; searchCol++)
+                    {
+                        var headerText = worksheet.Cells[row, searchCol].Text?.Trim();
+                        if (headerText?.Equals("Line", StringComparison.OrdinalIgnoreCase) == true)
+                            lineCol = searchCol;
+                        else if (headerText?.Contains("vs/at", StringComparison.OrdinalIgnoreCase) == true)
+                            vsAtCol = searchCol;
+                        else if (headerText?.Contains("Under Dog", StringComparison.OrdinalIgnoreCase) == true ||
+                                headerText?.Equals("Underdog", StringComparison.OrdinalIgnoreCase) == true)
+                            underdogCol = searchCol;
+                    }
                     break;
                 }
             }
+            if (headerRow > 0) break;
         }
 
-        if (weeklyLines.Week == 0)
+        if (headerRow == 0 || favoriteCol == 0 || lineCol == 0 || underdogCol == 0)
         {
-            throw new FormatException("Could not find week number in Excel file. Expected 'WEEK N' format.");
+            throw new FormatException("Could not find header row with required columns (Favorite, Line, Under Dog).");
         }
 
-        // Find the header row (contains "Favorite", "Line", "vs/at", "Under Dog")
-        int headerRow = 0;
-        for (int row = 1; row <= 20; row++)
+        // Find the date column (usually before Favorite column)
+        int dateCol = 0;
+        for (int col = 1; col < favoriteCol; col++)
         {
-            var col2Value = worksheet.Cells[row, 2].Text?.Trim();
-            if (col2Value?.Equals("Favorite", StringComparison.OrdinalIgnoreCase) == true)
+            var cellValue = worksheet.Cells[headerRow + 1, col].Text?.Trim();
+            if (!string.IsNullOrEmpty(cellValue) && DateTime.TryParse(cellValue, out _))
             {
-                headerRow = row;
+                dateCol = col;
                 break;
             }
-        }
-
-        if (headerRow == 0)
-        {
-            throw new FormatException("Could not find header row with 'Favorite' column.");
         }
 
         // Parse games starting after header row
         DateTime? currentGameDate = null;
         for (int row = headerRow + 1; row <= worksheet.Dimension.End.Row; row++)
         {
-            var col1Value = worksheet.Cells[row, 1].Text?.Trim();
-            var col2Value = worksheet.Cells[row, 2].Text?.Trim();
+            var favoriteValue = worksheet.Cells[row, favoriteCol].Text?.Trim();
 
             // Check if this is a date header row
-            if (!string.IsNullOrEmpty(col1Value) && string.IsNullOrEmpty(col2Value))
+            if (dateCol > 0)
             {
-                // Try to parse as date
-                if (DateTime.TryParse(col1Value, out DateTime parsedDate))
+                var dateValue = worksheet.Cells[row, dateCol].Text?.Trim();
+                if (!string.IsNullOrEmpty(dateValue) && DateTime.TryParse(dateValue, out DateTime parsedDate))
                 {
                     currentGameDate = parsedDate;
                     continue;
                 }
             }
 
-            // Check if this is a game row (has Favorite in column 2)
-            if (string.IsNullOrEmpty(col2Value))
+            // Try to find date in any non-empty cell in columns before favorite
+            if (string.IsNullOrEmpty(favoriteValue))
+            {
+                for (int col = 1; col < favoriteCol; col++)
+                {
+                    var cellValue = worksheet.Cells[row, col].Text?.Trim();
+                    if (!string.IsNullOrEmpty(cellValue) && DateTime.TryParse(cellValue, out DateTime parsedDate))
+                    {
+                        currentGameDate = parsedDate;
+                        break;
+                    }
+                }
                 continue;
+            }
 
-            var lineText = worksheet.Cells[row, 3].Text?.Trim();
-            var vsAt = worksheet.Cells[row, 4].Text?.Trim();
-            var underdog = worksheet.Cells[row, 5].Text?.Trim();
+            var lineText = worksheet.Cells[row, lineCol].Text?.Trim();
+            var vsAt = vsAtCol > 0 ? worksheet.Cells[row, vsAtCol].Text?.Trim() : "vs";
+            var underdog = worksheet.Cells[row, underdogCol].Text?.Trim();
 
             // Skip rows without complete game data
             if (string.IsNullOrEmpty(lineText) || string.IsNullOrEmpty(underdog))
@@ -104,9 +154,9 @@ public class ExcelService : IExcelService
 
             var game = new Game
             {
-                Favorite = col2Value,
+                Favorite = favoriteValue,
                 Line = line,
-                VsAt = vsAt ?? string.Empty,
+                VsAt = vsAt ?? "vs",
                 Underdog = underdog,
                 GameDate = currentGameDate ?? DateTime.UtcNow
             };

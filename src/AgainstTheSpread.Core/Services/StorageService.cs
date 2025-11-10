@@ -153,11 +153,7 @@ public class StorageService : IStorageService
 
         // Parse the Excel file
         excelStream.Position = 0;
-        var weeklyLines = await _excelService.ParseWeeklyLinesAsync(excelStream, cancellationToken);
-
-        // Override week and year with provided parameters (in case file doesn't have them)
-        weeklyLines.Week = week;
-        weeklyLines.Year = year;
+        var weeklyLines = await _excelService.ParseWeeklyLinesAsync(excelStream, week, year, cancellationToken);
 
         // Upload Excel file
         var excelBlobName = $"{LinesFolder}/week-{week}-{year}.xlsx";

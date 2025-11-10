@@ -26,7 +26,9 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
             "http://localhost:5000",
+            "http://localhost:5158",
             "https://localhost:5001",
+            "https://localhost:7103",
             "https://*.azurestaticapps.net"
         )
         .AllowAnyMethod()

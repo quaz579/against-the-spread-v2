@@ -37,8 +37,8 @@ echo "⏳ Waiting for Functions to initialize..."
 sleep 5
 
 # Check if Web App is already running
-if lsof -Pi :5000 -sTCP:LISTEN -t >/dev/null ; then
-    echo "⚠️  Web App is already running on port 5000"
+if lsof -Pi :5158 -sTCP:LISTEN -t >/dev/null ; then
+    echo "⚠️  Web App is already running on port 5158"
 else
     echo "🌐 Starting Blazor Web App (Frontend)..."
     cd src/AgainstTheSpread.Web
@@ -56,9 +56,9 @@ echo ""
 echo "📍 Services Running:"
 echo "   • Storage Emulator: http://localhost:10000"
 echo "   • Azure Functions:  http://localhost:7071"
-echo "   • Web Application:  http://localhost:5000"
+echo "   • Web Application:  http://localhost:5158"
 echo ""
-echo "🔗 Open in browser: http://localhost:5000"
+echo "🔗 Open in browser: http://localhost:5158"
 echo ""
 echo "⏹️  To stop all services:"
 echo "   ./stop-local.sh"

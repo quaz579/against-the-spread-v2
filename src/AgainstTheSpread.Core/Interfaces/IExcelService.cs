@@ -11,9 +11,11 @@ public interface IExcelService
     /// Parses an Excel file containing weekly betting lines
     /// </summary>
     /// <param name="excelStream">Stream containing the Excel file data</param>
+    /// <param name="week">Week number (optional, will be extracted from file if not provided)</param>
+    /// <param name="year">Year (optional, will default to current year if not provided)</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>WeeklyLines object with parsed game data</returns>
-    Task<WeeklyLines> ParseWeeklyLinesAsync(Stream excelStream, CancellationToken cancellationToken = default);
+    Task<WeeklyLines> ParseWeeklyLinesAsync(Stream excelStream, int? week = null, int? year = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Generates an Excel file with user's picks in the expected format

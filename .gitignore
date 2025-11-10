@@ -35,6 +35,7 @@ coverage/
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+.vscode/chrome-debug-profile/
 *.code-workspace
 
 ## Rider
