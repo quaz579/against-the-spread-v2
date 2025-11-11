@@ -3,6 +3,8 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using System.Net;
+using System.Text;
+using System.Text.Json;
 
 namespace AgainstTheSpread.Functions;
 
@@ -37,6 +39,12 @@ public class UploadLinesFunction
 
         try
         {
+            // Check authentication and authorization
+            if (!IsAuthorized(req, out var errorResponse))
+            {
+                return errorResponse;
+            }
+
             // Get week and year from query parameters
             if (!int.TryParse(req.Query["week"], out int week))
             {
@@ -103,4 +111,116 @@ public class UploadLinesFunction
             return errorResponse;
         }
     }
+
+    /// <summary>
+    /// Check if the request is from an authorized admin user
+    /// </summary>
+    private bool IsAuthorized(HttpRequestData req, out HttpResponseData errorResponse)
+    {
+        errorResponse = null!;
+
+        // Get the client principal from SWA auth header
+        if (!req.Headers.TryGetValues("X-MS-CLIENT-PRINCIPAL", out var principalValues))
+        {
+            _logger.LogWarning("No authentication header found");
+            errorResponse = req.CreateResponse(HttpStatusCode.Unauthorized);
+            errorResponse.WriteStringAsync("Authentication required").Wait();
+            return false;
+        }
+
+        var principalHeader = principalValues.FirstOrDefault();
+        if (string.IsNullOrEmpty(principalHeader))
+        {
+            _logger.LogWarning("Empty authentication header");
+            errorResponse = req.CreateResponse(HttpStatusCode.Unauthorized);
+            errorResponse.WriteStringAsync("Authentication required").Wait();
+            return false;
+        }
+
+        try
+        {
+            // Decode the base64-encoded principal
+            var principalJson = Encoding.UTF8.GetString(Convert.FromBase64String(principalHeader));
+            var principal = JsonSerializer.Deserialize<ClientPrincipal>(principalJson, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            if (principal == null || string.IsNullOrEmpty(principal.UserId))
+            {
+                _logger.LogWarning("Invalid principal data");
+                errorResponse = req.CreateResponse(HttpStatusCode.Unauthorized);
+                errorResponse.WriteStringAsync("Invalid authentication").Wait();
+                return false;
+            }
+
+            // Get admin email list from environment variable
+            var adminEmailsConfig = Environment.GetEnvironmentVariable("ADMIN_EMAILS") ?? "";
+            var adminEmails = adminEmailsConfig
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(e => e.ToLowerInvariant())
+                .ToHashSet();
+
+            // Get user email from claims
+            var userEmail = principal.Claims
+                ?.FirstOrDefault(c => c.Type?.Equals("email", StringComparison.OrdinalIgnoreCase) == true)
+                ?.Value;
+
+            if (string.IsNullOrEmpty(userEmail))
+            {
+                // Try alternative claim types
+                userEmail = principal.Claims
+                    ?.FirstOrDefault(c => c.Type?.Equals("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress", StringComparison.OrdinalIgnoreCase) == true)
+                    ?.Value;
+            }
+
+            if (string.IsNullOrEmpty(userEmail))
+            {
+                _logger.LogWarning("No email claim found for user {UserId}", principal.UserId);
+                errorResponse = req.CreateResponse(HttpStatusCode.Forbidden);
+                errorResponse.WriteStringAsync("Email not found in authentication").Wait();
+                return false;
+            }
+
+            // Check if user email is in admin list
+            if (!adminEmails.Contains(userEmail.ToLowerInvariant()))
+            {
+                _logger.LogWarning("User {Email} is not authorized as admin", userEmail);
+                errorResponse = req.CreateResponse(HttpStatusCode.Forbidden);
+                errorResponse.WriteStringAsync("Access denied. Admin privileges required.").Wait();
+                return false;
+            }
+
+            _logger.LogInformation("Admin access granted for {Email}", userEmail);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error validating authentication");
+            errorResponse = req.CreateResponse(HttpStatusCode.Unauthorized);
+            errorResponse.WriteStringAsync("Authentication validation failed").Wait();
+            return false;
+        }
+    }
+}
+
+/// <summary>
+/// Represents the client principal from SWA authentication
+/// </summary>
+internal class ClientPrincipal
+{
+    public string? IdentityProvider { get; set; }
+    public string? UserId { get; set; }
+    public string? UserDetails { get; set; }
+    public List<string>? UserRoles { get; set; }
+    public List<ClientPrincipalClaim>? Claims { get; set; }
+}
+
+/// <summary>
+/// Represents a claim in the client principal
+/// </summary>
+internal class ClientPrincipalClaim
+{
+    public string? Type { get; set; }
+    public string? Value { get; set; }
 }
