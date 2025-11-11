@@ -1,0 +1,14 @@
+{
+  "$schema": "https://aka.ms/azure/static-web-apps-cli/schema",
+  "configurations": {
+    "app": {
+      "outputLocation": "src/AgainstTheSpread.Web/bin/Debug/net8.0/wwwroot",
+      "appDevserverUrl": "http://localhost:5158",
+      "apiLocation": "src/AgainstTheSpread.Functions",
+      "apiDevserverUrl": "http://localhost:7071",
+      "run": "dotnet watch run --project src/AgainstTheSpread.Web",
+      "apiLanguage": "dotnet-isolated",
+      "apiBuildCommand": "dotnet build src/AgainstTheSpread.Functions"
+    }
+  }
+}

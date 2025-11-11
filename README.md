@@ -8,17 +8,12 @@ A Progressive Web Application (PWA) for managing a weekly college football pick'
 
 ## 🎯 Features
 
-**MVP (Current):**
-- **Admin**: Upload weekly betting lines via command-line script (no web UI)
-- **Mobile-First UI**: Select 6 games on the go with touch-friendly interface
-- **Excel Download**: Generate formatted picks file in exact required format
-- **PWA Support**: Install as a native app on iOS/Android
-- **Offline Capable**: Works without internet connection
-- **Zero Cost**: Runs on Azure free tier
-
-**Coming Soon:**
-- Web-based admin interface for uploading lines
-- User authentication and pick history
+- **Admin Panel**: Upload weekly betting lines with Google OAuth authentication
+- **Mobile-First PWA**: Install as native app on iOS/Android with custom football icon
+- **Excel Upload/Download**: Upload betting lines and generate formatted picks
+- **Offline Capable**: Works without internet connection (service worker)
+- **Secure Authentication**: Google OAuth with email-based authorization
+- **Dev/Prod Environments**: Branch-based deployments (main = production, dev = staging)
 - Automated scoring and leaderboards
 
 ## 🏗️ Architecture
@@ -48,49 +43,101 @@ A Progressive Web Application (PWA) for managing a weekly college football pick'
 └─────────────────┘
 ```
 
-## 🚀 Quick Start
+## 🚀 Setup
 
 ### Prerequisites
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
-- [Terraform](https://www.terraform.io/downloads)
-- [Azure Functions Core Tools](https://docs.microsoft.com/en-us/azure/azure-functions/functions-run-local)
-- [Azurite](https://docs.microsoft.com/en-us/azure/storage/common/storage-use-azurite) (for local development)
+- .NET 8 SDK
+- Azure CLI
+- Azure Functions Core Tools (v4)
+- Node.js (for Azure Static Web Apps CLI)
+- Azure Static Web Apps CLI: `npm install -g @azure/static-web-apps-cli`
+- Azure subscription (free tier works)
 
-### Local Development Setup
+### Environment Setup
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/against-the-spread.git
+   git clone https://github.com/quaz579/against-the-spread.git
    cd against-the-spread
    ```
 
-2. **Restore dependencies**
+2. **Create .env file** (for local development)
    ```bash
-   dotnet restore
+   # Create .env in the root directory with:
+   GOOGLE_CLIENT_ID=your-google-client-id
+   GOOGLE_CLIENT_SECRET=your-google-client-secret
+   ADMIN_EMAILS=your-admin-email@example.com
    ```
 
-3. **Start Azurite (local storage emulator)**
+3. **Configure Google OAuth** (see `GOOGLE_AUTH_SETUP.md` for detailed instructions)
+   - Create OAuth 2.0 Client in Google Cloud Console
+   - Add redirect URIs:
+     - `https://your-swa-hostname.azurestaticapps.net/.auth/login/google/callback` (production)
+     - `http://localhost:4280/.auth/login/google/callback` (local dev)
+
+4. **Configure Azure resources**
    ```bash
-   azurite --silent --location /tmp/azurite
+   # Create resource group
+   az group create --name rg-against-the-spread --location centralus
+
+   # Create storage account
+   az storage account create \
+     --name stprdagnstthesprd \
+     --resource-group rg-against-the-spread \
+     --location centralus \
+     --sku Standard_LRS
+
+   # Create blob container
+   az storage container create \
+     --name weeklypicks \
+     --account-name stprdagnstthesprd
    ```
 
-4. **Run Azure Functions locally**
+5. **Deploy Azure Static Web App** (via GitHub Actions)
+   - Push to `main` branch for production
+   - Push to `dev` branch for staging environment
+   - GitHub Actions will automatically build and deploy
+
+6. **Configure SWA App Settings** (for production/staging)
    ```bash
-   cd src/AgainstTheSpread.Functions
-   func start
+   az staticwebapp appsettings set \
+     --name swa-against-the-spread \
+     --setting-names \
+       GOOGLE_CLIENT_ID="your-client-id" \
+       GOOGLE_CLIENT_SECRET="your-client-secret" \
+       ADMIN_EMAILS="admin@example.com" \
+       AZURE_STORAGE_CONNECTION_STRING="your-connection-string"
    ```
 
-5. **Run Blazor Web App** (in a new terminal)
+### Local Development
+
+Run the app locally with authentication emulation:
+
+1. **Publish the Blazor app** (generates static files)
    ```bash
-   cd src/AgainstTheSpread.Web
-   dotnet run
+   dotnet publish src/AgainstTheSpread.Web -c Debug
    ```
 
-6. **Open your browser**
-   - Web App: http://localhost:5000
-   - API: http://localhost:7071
+2. **Load environment variables and start SWA CLI**
+   ```bash
+   export $(cat .env | xargs)
+   swa start src/AgainstTheSpread.Web/bin/Debug/net8.0/publish/wwwroot \
+     --api-location src/AgainstTheSpread.Functions
+   ```
+
+3. **Access the app**
+   - Web app: `http://localhost:4280`
+   - API: `http://localhost:4280/api`
+   - Functions (direct): `http://localhost:7071/api`
+
+4. **Test authentication locally**
+   - SWA CLI provides mock authentication at `http://localhost:4280/.auth/login/google`
+   - For real Google OAuth testing, ensure redirect URI includes `http://localhost:4280/.auth/login/google/callback` in Google Console
+
+**Note**: The Blazor app must be published (not just built) for the SWA CLI to serve it correctly. The publish step generates the static files in `bin/Debug/net8.0/publish/wwwroot/`.
+
+See `LOCAL_DEV_AUTH.md` for detailed authentication testing instructions.
 
 ### Run Tests
 
