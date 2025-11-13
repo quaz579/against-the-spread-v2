@@ -208,7 +208,7 @@ public class TeamLogoTests : TestContext
         _logoServiceMock.Setup(s => s.GetLogoUrl(teamName)).Returns(logoUrl);
 
         // Act
-        var cut = RenderComponent<TeamLogo>(parameters => parameters
+        RenderComponent<TeamLogo>(parameters => parameters
             .Add(p => p.TeamName, teamName));
 
         // Assert - Component may call service multiple times during render

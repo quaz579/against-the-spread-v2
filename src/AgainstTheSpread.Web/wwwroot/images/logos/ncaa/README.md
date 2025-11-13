@@ -13,7 +13,7 @@ For example:
 
 ## Team Name to Logo Mapping
 
-The `team-logo-mapping.json` file in the project root contains a complete mapping of team names to logo IDs for all FBS teams.
+The `team-logo-mapping.json` file located at `wwwroot/team-logo-mapping.json` contains a complete mapping of team names to logo IDs for all FBS teams.
 
 Example usage in C#:
 ```csharp

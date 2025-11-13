@@ -26,23 +26,7 @@
     [Parameter]
     public string Style { get; set; } = "width: 24px; height: 24px; object-fit: contain; margin-right: 8px;";
 
-    private string? LogoUrl
-    {
-        get
-        {
-            var url = TeamLogoService.GetLogoUrl(TeamName);
-            Console.WriteLine($"TeamLogo.razor: GetLogoUrl('{TeamName}') returned '{url}'");
-            return url;
-        }
-    }
+    private string? LogoUrl => TeamLogoService.GetLogoUrl(TeamName);
 
-    private bool ShowLogo
-    {
-        get
-        {
-            var show = LogoUrl != null;
-            Console.WriteLine($"TeamLogo.razor: ShowLogo for '{TeamName}' = {show}");
-            return show;
-        }
-    }
+    private bool ShowLogo => LogoUrl != null;
 }

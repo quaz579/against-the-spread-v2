@@ -44,13 +44,10 @@ public class TeamLogoService : ITeamLogoService
     {
         try
         {
-            Console.WriteLine("TeamLogoService: Starting initialization...");
             _logger.LogInformation("TeamLogoService: Starting initialization");
 
             // Blazor WebAssembly - load via HTTP
-            Console.WriteLine($"TeamLogoService: Fetching /team-logo-mapping.json from {_httpClient.BaseAddress}");
             var json = await _httpClient.GetStringAsync("/team-logo-mapping.json");
-            Console.WriteLine($"TeamLogoService: Successfully fetched JSON ({json.Length} chars)");
 
             var mapping = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
 
@@ -60,22 +57,19 @@ public class TeamLogoService : ITeamLogoService
                 {
                     _teamLogoMapping[kvp.Key] = kvp.Value;
                 }
-                Console.WriteLine($"TeamLogoService: Loaded {_teamLogoMapping.Count} team logo mappings");
                 _logger.LogInformation("Loaded {Count} team logo mappings", _teamLogoMapping.Count);
-            }
-            else
-            {
-                Console.WriteLine("TeamLogoService: WARNING - Deserialized mapping is null!");
             }
 
             _isInitialized = true;
-            Console.WriteLine("TeamLogoService: Initialization complete");
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
-            Console.WriteLine($"TeamLogoService: ERROR - {ex.Message}");
-            Console.WriteLine($"TeamLogoService: Stack trace - {ex.StackTrace}");
-            _logger.LogError(ex, "Failed to load team logo mappings. Logos will not be displayed.");
+            _logger.LogError(ex, "Failed to load team logo mappings due to HTTP error. Logos will not be displayed.");
+            _isInitialized = true; // Don't keep retrying
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to parse team logo mappings JSON. Logos will not be displayed.");
             _isInitialized = true; // Don't keep retrying
         }
     }
@@ -85,22 +79,18 @@ public class TeamLogoService : ITeamLogoService
         // Synchronous version for component binding - returns null if not initialized
         if (!_isInitialized)
         {
-            Console.WriteLine($"TeamLogoService.GetLogoUrl('{teamName}'): Service not initialized yet");
             return null;
         }
 
         if (string.IsNullOrWhiteSpace(teamName))
         {
-            Console.WriteLine("TeamLogoService.GetLogoUrl: Team name is null or empty");
             return null;
         }
 
         // Try exact match first (case-insensitive)
         if (_teamLogoMapping.TryGetValue(teamName, out var logoId))
         {
-            var url = $"{LogoBasePath}{logoId}.png";
-            Console.WriteLine($"TeamLogoService.GetLogoUrl('{teamName}'): Found exact match -> {url}");
-            return url;
+            return $"{LogoBasePath}{logoId}.png";
         }
 
         // Try to find a partial match
@@ -110,12 +100,9 @@ public class TeamLogoService : ITeamLogoService
 
         if (partialMatch != null && _teamLogoMapping.TryGetValue(partialMatch, out logoId))
         {
-            var url = $"{LogoBasePath}{logoId}.png";
-            Console.WriteLine($"TeamLogoService.GetLogoUrl('{teamName}'): Found partial match '{partialMatch}' -> {url}");
-            return url;
+            return $"{LogoBasePath}{logoId}.png";
         }
 
-        Console.WriteLine($"TeamLogoService.GetLogoUrl('{teamName}'): No match found in {_teamLogoMapping.Count} teams");
         return null;
     }
 

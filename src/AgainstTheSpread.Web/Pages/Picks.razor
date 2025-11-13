@@ -169,12 +169,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        Console.WriteLine("Picks.razor: OnInitializedAsync starting");
-
         // Initialize the team logo service
-        Console.WriteLine($"Picks.razor: Initializing TeamLogoService with HttpClient (BaseAddress: {HttpClient.BaseAddress})");
         await TeamLogoService.InitializeAsync(HttpClient);
-        Console.WriteLine("Picks.razor: TeamLogoService initialization complete");
 
         await LoadAvailableWeeks();
     }
