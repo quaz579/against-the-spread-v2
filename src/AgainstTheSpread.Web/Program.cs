@@ -10,7 +10,16 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 // Configure API base URL from configuration
 var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? builder.HostEnvironment.BaseAddress;
 
+// Register the API HttpClient for making API calls
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(apiBaseUrl) });
 builder.Services.AddScoped<ApiService>();
+
+// Register a separate HttpClient for TeamLogoService that points to the web app itself
+builder.Services.AddScoped<ITeamLogoService>(sp =>
+{
+    var httpClient = new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) };
+    var logger = sp.GetRequiredService<ILogger<TeamLogoService>>();
+    return new TeamLogoService(logger, httpClient);
+});
 
 await builder.Build().RunAsync();

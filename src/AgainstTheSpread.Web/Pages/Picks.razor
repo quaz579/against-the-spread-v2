@@ -3,6 +3,8 @@
 @using AgainstTheSpread.Web.Services
 @using Microsoft.JSInterop
 @inject ApiService ApiService
+@inject ITeamLogoService TeamLogoService
+@inject HttpClient HttpClient
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Make Your Picks - Against The Spread</PageTitle>
@@ -100,6 +102,8 @@
                                 <button class="btn @(isFavoriteSelected ? "btn-success" : "btn-outline-primary")"
                                     @onclick="() => TogglePick(game.Favorite)"
                                     disabled="@(!isFavoriteSelected && selectedPicks.Count >= 6)">
+                                    <TeamLogo TeamName="@game.Favorite"
+                                        Style="width: 20px; height: 20px; object-fit: contain; margin-right: 6px; vertical-align: middle;" />
                                     @game.FavoriteDisplay
                                     @if (isFavoriteSelected)
                                     {
@@ -114,6 +118,8 @@
                                 <button class="btn @(isUnderdogSelected ? "btn-success" : "btn-outline-secondary")"
                                     @onclick="() => TogglePick(game.Underdog)"
                                     disabled="@(!isUnderdogSelected && selectedPicks.Count >= 6)">
+                                    <TeamLogo TeamName="@game.Underdog"
+                                        Style="width: 20px; height: 20px; object-fit: contain; margin-right: 6px; vertical-align: middle;" />
                                     @game.UnderdogDisplay
                                     @if (isUnderdogSelected)
                                     {
@@ -163,6 +169,13 @@
 
     protected override async Task OnInitializedAsync()
     {
+        Console.WriteLine("Picks.razor: OnInitializedAsync starting");
+
+        // Initialize the team logo service
+        Console.WriteLine($"Picks.razor: Initializing TeamLogoService with HttpClient (BaseAddress: {HttpClient.BaseAddress})");
+        await TeamLogoService.InitializeAsync(HttpClient);
+        Console.WriteLine("Picks.razor: TeamLogoService initialization complete");
+
         await LoadAvailableWeeks();
     }
 
