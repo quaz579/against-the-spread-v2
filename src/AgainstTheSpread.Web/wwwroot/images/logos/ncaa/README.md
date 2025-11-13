@@ -156,7 +156,6 @@ Example usage in Blazor:
 | UAB | 5 | ![](5.png) |
 | UCF | 2116 | ![](2116.png) |
 | UCLA | 26 | ![](26.png) |
-| UConn | 41 | ![](41.png) |
 | UL Monroe | 2433 | ![](2433.png) |
 | UMass | 113 | ![](113.png) |
 | UNLV | 2439 | ![](2439.png) |
