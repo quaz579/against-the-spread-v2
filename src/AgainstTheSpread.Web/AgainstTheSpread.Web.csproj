@@ -20,4 +20,14 @@
     <ProjectReference Include="..\AgainstTheSpread.Core\AgainstTheSpread.Core.csproj" />
   </ItemGroup>
 
+  <Target Name="CopyLogoFiles" AfterTargets="Build">
+    <ItemGroup>
+      <LogoFiles Include="wwwroot\images\**\*.*" />
+      <MappingFile Include="wwwroot\team-logo-mapping.json" />
+    </ItemGroup>
+    <Copy SourceFiles="@(LogoFiles)" DestinationFolder="$(OutputPath)wwwroot\images\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(MappingFile)" DestinationFolder="$(OutputPath)wwwroot" SkipUnchangedFiles="true" />
+  </Target>
+
 </Project>
+ 
