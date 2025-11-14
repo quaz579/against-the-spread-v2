@@ -102,6 +102,23 @@ code {
     color: #c02d76;
 }
 
+/* Selected button styles - bright green with dark border */
+.btn-selected {
+    font-weight: bold;
+    transition: all 0.15s ease-in-out;
+}
+
+.btn-selected:hover:not(:disabled) {
+    filter: brightness(1.15);
+    transform: translateY(-1px);
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.3);
+}
+
+.btn-selected:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+}
+
 /* Team color button styles */
 .team-color-btn {
     font-weight: 500;

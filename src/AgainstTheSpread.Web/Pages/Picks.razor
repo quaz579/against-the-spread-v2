@@ -304,10 +304,10 @@
 
     private string GetButtonClass(bool isSelected, TeamColors? teamColors)
     {
-        // If selected, always use success state
+        // If selected, use bright green with custom styling
         if (isSelected)
         {
-            return "btn-success";
+            return "btn-selected";
         }
 
         // If no team colors, use default Bootstrap styles
@@ -322,8 +322,14 @@
 
     private string GetButtonStyle(bool isSelected, TeamColors? teamColors)
     {
-        // If selected or no colors, don't add custom styles
-        if (isSelected || teamColors == null)
+        // If selected, use bright green with dark border
+        if (isSelected)
+        {
+            return "background-color: #00ff00; border: 3px solid #000000; color: #000000; font-weight: bold;";
+        }
+
+        // If no colors, don't add custom styles
+        if (teamColors == null)
         {
             return string.Empty;
         }
