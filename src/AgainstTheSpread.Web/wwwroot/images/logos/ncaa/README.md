@@ -15,6 +15,25 @@ For example:
 
 The `team-logo-mapping.json` file located at `wwwroot/team-logo-mapping.json` contains a complete mapping of team names to logo IDs for all FBS teams.
 
+### Duplicate Mappings Are Intentional
+
+**Important:** The mapping file contains multiple entries for the same team with different name variations. This is intentional and beneficial!
+
+Team names can appear in various formats depending on the data source:
+- Full official names: "Michigan State"
+- Common abbreviations: "MSU", "Mich State", "Mich St."
+- Short names: "UConn" vs "Connecticut"
+- Variations with punctuation: "Florida St" vs "Florida St."
+
+Having duplicate mappings ensures that team logos are correctly displayed regardless of which name variation is provided by the data source. This is especially important when data comes from different sources like ESPN, CBS Sports, or other sports data providers that may use different naming conventions.
+
+**Example duplicates:**
+- "Michigan State", "Michigan St", "Michigan St.", "MSU", "Mich State", "Mich St", "Mich St." all map to ID "127"
+- "Connecticut" and "UConn" both map to ID "41"
+- "Florida State", "Florida St", "Florida St.", and "FSU" all map to ID "52"
+
+Missing a team logo due to a name variation is bad. Having duplicate mappings is good!
+
 Example usage in C#:
 ```csharp
 // Read the mapping file
