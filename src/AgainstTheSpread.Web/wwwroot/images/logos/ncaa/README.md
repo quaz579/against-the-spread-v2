@@ -13,7 +13,7 @@ For example:
 
 ## Team Name to Logo Mapping
 
-The `team-logo-mapping.json` file located at `wwwroot/team-logo-mapping.json` contains a complete mapping of team names to logo IDs for all FBS teams.
+The `team-logo-mapping.json` file located at `wwwroot/team-logo-mapping.json` contains a complete mapping of team names to logo IDs for FBS and FCS teams (156 teams total).
 
 Example usage in C#:
 ```csharp
@@ -38,7 +38,11 @@ Example usage in Blazor:
 }
 ```
 
-## All FBS Teams (2024-2025 Season)
+## Supported Teams
+
+The application supports 156 NCAA Division I football teams, including both FBS and select FCS teams. This includes all teams that appear in weekly betting lines.
+
+### All FBS Teams (2024-2025 Season)
 
 | Team | Logo ID | Preview |
 |------|---------|---------|
@@ -176,6 +180,47 @@ Example usage in Blazor:
 | Western Michigan | 2711 | ![](2711.png) |
 | Wisconsin | 275 | ![](275.png) |
 | Wyoming | 2770 | ![](2770.png) |
+
+### FCS Teams Added (2025)
+
+The following FCS teams have been added to support games that appear in weekly betting lines:
+
+| Team | Logo ID |
+|------|---------|
+| Abilene Christian | 2000 |
+| Albany | 399 |
+| Bryant | 2806 |
+| Central Arkansas | 2110 |
+| Delaware | 48 |
+| Delaware State | 2169 |
+| Eastern Kentucky | 2198 |
+| Elon | 2210 |
+| Idaho | 70 |
+| Kennesaw State | 338 |
+| Lamar | 2320 |
+| Merrimack | 2620 |
+| Missouri State | 2623 |
+| North Arizona | 2464 |
+| North Dakota | 2551 |
+| Portland State | 2502 |
+| SE Louisiana | 2524 |
+| SF Austin | 2612 |
+| St Francis PA | 2545 |
+| Stony Brook | 2615 |
+| UL Lafayette | 309 |
+| UT Martin | 2632 |
+
+## Team Colors
+
+Team colors are maintained in a separate `team-color-mapping.json` file at `wwwroot/team-color-mapping.json`. Each team has a primary and secondary color defined in hex format.
+
+Example:
+```json
+{
+  "Alabama": { "primary": "#9E1B32", "secondary": "#828A8F" },
+  "Abilene Christian": { "primary": "#4F2170", "secondary": "#FFFFFF" }
+}
+```
 
 ## License
 
