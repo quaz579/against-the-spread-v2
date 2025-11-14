@@ -101,3 +101,25 @@ a, .btn-link {
 code {
     color: #c02d76;
 }
+
+/* Team color button styles */
+.team-color-btn {
+    font-weight: 500;
+    transition: all 0.15s ease-in-out;
+}
+
+.team-color-btn:hover:not(:disabled) {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.team-color-btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.team-color-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}

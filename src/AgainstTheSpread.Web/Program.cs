@@ -22,4 +22,12 @@ builder.Services.AddScoped<ITeamLogoService>(sp =>
     return new TeamLogoService(logger, httpClient);
 });
 
+// Register TeamColorService that points to the web app itself
+builder.Services.AddScoped<ITeamColorService>(sp =>
+{
+    var httpClient = new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) };
+    var logger = sp.GetRequiredService<ILogger<TeamColorService>>();
+    return new TeamColorService(logger, httpClient);
+});
+
 await builder.Build().RunAsync();

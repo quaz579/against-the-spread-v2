@@ -1,9 +1,11 @@
 @page "/picks"
 @using AgainstTheSpread.Core.Models
 @using AgainstTheSpread.Web.Services
+@using AgainstTheSpread.Web.Models
 @using Microsoft.JSInterop
 @inject ApiService ApiService
 @inject ITeamLogoService TeamLogoService
+@inject ITeamColorService TeamColorService
 @inject HttpClient HttpClient
 @inject IJSRuntime JSRuntime
 
@@ -93,13 +95,16 @@
                 var isFavoriteSelected = selectedPicks.Contains(game.Favorite);
                 var isUnderdogSelected = selectedPicks.Contains(game.Underdog);
                 var gameDate = game.GameDate.ToString("ddd M/d, h:mm tt");
+                var favoriteColors = TeamColorService.GetTeamColors(game.Favorite);
+                var underdogColors = TeamColorService.GetTeamColors(game.Underdog);
 
                 <div class="col-md-6 col-lg-4 mb-3">
                     <div class="card h-100">
                         <div class="card-body">
                             <small class="text-muted">@gameDate</small>
                             <div class="d-grid gap-2 mt-2">
-                                <button class="btn @(isFavoriteSelected ? "btn-success" : "btn-outline-primary")"
+                                <button class="btn @GetButtonClass(isFavoriteSelected, favoriteColors)"
+                                    style="@GetButtonStyle(isFavoriteSelected, favoriteColors)"
                                     @onclick="() => TogglePick(game.Favorite)"
                                     disabled="@(!isFavoriteSelected && selectedPicks.Count >= 6)">
                                     <TeamLogo TeamName="@game.Favorite"
@@ -115,7 +120,8 @@
                                     <small class="text-muted">@game.VsAt</small>
                                 </div>
 
-                                <button class="btn @(isUnderdogSelected ? "btn-success" : "btn-outline-secondary")"
+                                <button class="btn @GetButtonClass(isUnderdogSelected, underdogColors)"
+                                    style="@GetButtonStyle(isUnderdogSelected, underdogColors)"
                                     @onclick="() => TogglePick(game.Underdog)"
                                     disabled="@(!isUnderdogSelected && selectedPicks.Count >= 6)">
                                     <TeamLogo TeamName="@game.Underdog"
@@ -169,8 +175,9 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Initialize the team logo service
+        // Initialize the team logo service and team color service
         await TeamLogoService.InitializeAsync(HttpClient);
+        await TeamColorService.InitializeAsync(HttpClient);
 
         await LoadAvailableWeeks();
     }
@@ -293,5 +300,52 @@
         {
             isDownloading = false;
         }
+    }
+
+    private string GetButtonClass(bool isSelected, TeamColors? teamColors)
+    {
+        // If selected, always use success state
+        if (isSelected)
+        {
+            return "btn-success";
+        }
+
+        // If no team colors, use default Bootstrap styles
+        if (teamColors == null)
+        {
+            return "btn-outline-primary";
+        }
+
+        // Use team-colored class for unselected buttons with team colors
+        return "team-color-btn";
+    }
+
+    private string GetButtonStyle(bool isSelected, TeamColors? teamColors)
+    {
+        // If selected or no colors, don't add custom styles
+        if (isSelected || teamColors == null)
+        {
+            return string.Empty;
+        }
+
+        // Apply team colors with good contrast for text
+        var brightness = GetBrightness(teamColors.Primary);
+        var textColor = brightness > 128 ? "#000000" : "#FFFFFF";
+
+        return $"background-color: {teamColors.Primary}; border-color: {teamColors.Secondary}; color: {textColor};";
+    }
+
+    private int GetBrightness(string hexColor)
+    {
+        // Remove # if present
+        hexColor = hexColor.TrimStart('#');
+
+        // Parse RGB values
+        var r = Convert.ToInt32(hexColor.Substring(0, 2), 16);
+        var g = Convert.ToInt32(hexColor.Substring(2, 2), 16);
+        var b = Convert.ToInt32(hexColor.Substring(4, 2), 16);
+
+        // Calculate perceived brightness using standard formula
+        return (int)((r * 299 + g * 587 + b * 114) / 1000);
     }
 }
