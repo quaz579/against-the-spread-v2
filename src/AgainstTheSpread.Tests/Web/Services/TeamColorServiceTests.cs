@@ -366,4 +366,47 @@ public class TeamColorServiceTests
         Assert.NotNull(texasColors);
         Assert.Equal("#BF5700", texasColors.Primary);
     }
+
+    [Fact]
+    public async Task InitializeAsync_HandlesCaseInsensitiveJson_Successfully()
+    {
+        // Arrange - Create JSON with lowercase property names like the actual file
+        var json = @"{
+            ""Alabama"": { ""primary"": ""#9E1B32"", ""secondary"": ""#828A8F"" },
+            ""Michigan"": { ""primary"": ""#00274C"", ""secondary"": ""#FFCB05"" }
+        }";
+        
+        var handlerMock = new Mock<HttpMessageHandler>();
+        handlerMock.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .ReturnsAsync(() => new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(json)
+            });
+
+        var httpClient = new HttpClient(handlerMock.Object)
+        {
+            BaseAddress = new Uri("http://localhost/")
+        };
+        
+        var service = new TeamColorService(_loggerMock.Object, httpClient);
+
+        // Act
+        await service.InitializeAsync(httpClient);
+
+        // Assert - Verify colors are loaded correctly despite lowercase JSON properties
+        var alabamaColors = service.GetTeamColors("Alabama");
+        var michiganColors = service.GetTeamColors("Michigan");
+        
+        Assert.NotNull(alabamaColors);
+        Assert.Equal("#9E1B32", alabamaColors.Primary);
+        Assert.Equal("#828A8F", alabamaColors.Secondary);
+        Assert.NotNull(michiganColors);
+        Assert.Equal("#00274C", michiganColors.Primary);
+        Assert.Equal("#FFCB05", michiganColors.Secondary);
+    }
 }

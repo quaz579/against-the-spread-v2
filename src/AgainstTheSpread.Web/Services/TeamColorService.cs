@@ -49,7 +49,12 @@ public class TeamColorService : ITeamColorService
             // Blazor WebAssembly - load via HTTP
             var json = await _httpClient.GetStringAsync("/team-color-mapping.json");
 
-            var mapping = JsonSerializer.Deserialize<Dictionary<string, TeamColors>>(json);
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            };
+
+            var mapping = JsonSerializer.Deserialize<Dictionary<string, TeamColors>>(json, options);
 
             if (mapping != null)
             {
