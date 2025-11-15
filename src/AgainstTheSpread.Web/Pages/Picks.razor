@@ -94,7 +94,7 @@
             {
                 var isFavoriteSelected = selectedPicks.Contains(game.Favorite);
                 var isUnderdogSelected = selectedPicks.Contains(game.Underdog);
-                var gameDate = game.GameDate.ToString("ddd M/d, h:mm tt");
+                var gameDate = game.GameDate.ToString("ddd M/d");
                 var favoriteColors = TeamColorService.GetTeamColors(game.Favorite);
                 var underdogColors = TeamColorService.GetTeamColors(game.Underdog);
 
