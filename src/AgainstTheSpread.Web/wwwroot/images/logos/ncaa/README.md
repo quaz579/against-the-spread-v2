@@ -200,6 +200,17 @@ The application supports 156 NCAA Division I football teams, including both FBS 
 | Wisconsin | 275 | ![](275.png) |
 | Wyoming | 2770 | ![](2770.png) |
 
+### FBS Teams Added (2025)
+
+The following FBS teams have been added to support games that appear in weekly betting lines:
+
+| Team | Logo ID |
+|------|---------|
+| Kennesaw State | 338 |
+| UL Lafayette | 309 |
+| UTEP | 2638 |
+| UTSA | 2636 |
+
 ### FCS Teams Added (2025)
 
 The following FCS teams have been added to support games that appear in weekly betting lines:
