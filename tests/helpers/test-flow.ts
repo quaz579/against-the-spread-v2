@@ -43,27 +43,37 @@ export async function testWeekFlow(page: Page, week: number, userName: string): 
   // Select Week
   await weekSelect.selectOption(String(week));
 
-  // Click Continue
+  // Click Continue to load games
   await page.getByRole('button', { name: /continue/i }).click();
-  await page.waitForLoadState('networkidle');
   
-  // Wait for games to load - wait for game buttons to appear
-  // Game buttons have team logos, we can wait for those to ensure the page is loaded
-  await page.waitForSelector('.card button', { state: 'visible', timeout: 10000 });
+  // Wait for loading spinner to disappear (indicates games are loading)
+  await page.waitForSelector('.spinner-border', { state: 'hidden', timeout: 10000 });
+  
+  // Wait for games to load - wait for game buttons to appear inside cards
+  // The page structure has buttons inside .card .card-body elements
+  await page.waitForSelector('.card .card-body button', { state: 'visible', timeout: 15000 });
 
   // Select 6 games by clicking on team buttons
-  // Game buttons are in cards and are not the "Back" button
-  const gameButtons = page.locator('.card button');
+  // Game buttons are in .card .card-body and there are 2 buttons per game (favorite and underdog)
+  const gameButtons = page.locator('.card .card-body button');
   const buttonCount = await gameButtons.count();
-  expect(buttonCount).toBeGreaterThanOrEqual(6);
+  console.log(`Found ${buttonCount} game buttons`);
+  expect(buttonCount).toBeGreaterThanOrEqual(12); // At least 6 games * 2 buttons each
 
-  // Click first 6 game buttons
-  for (let i = 0; i < 6 && i < buttonCount; i++) {
+  // Click first 6 game buttons (every other button since there are 2 per game)
+  // We want to select 6 different games, so we click buttons at index 0, 2, 4, 6, 8, 10
+  for (let i = 0; i < 12 && i < buttonCount; i += 2) {
     const button = gameButtons.nth(i);
-    await expect(button).toBeEnabled();
+    
+    // Wait for button to be enabled (initially some might be disabled if 6 already selected)
+    await expect(button).toBeEnabled({ timeout: 2000 });
     await button.click();
+    
     // Wait for the button state to update - the app uses 'btn-selected' class
-    await expect(button).toHaveClass(/btn-selected/);
+    await expect(button).toHaveClass(/btn-selected/, { timeout: 2000 });
+    
+    // Small delay to let the UI update
+    await page.waitForTimeout(200);
   }
 
   // Wait for download button to appear
