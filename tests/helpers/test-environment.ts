@@ -41,6 +41,16 @@ export class TestEnvironment {
       '--blobPort', '10000'
     ]);
 
+    // Attach output and error handlers for Azurite process
+    this.azuriteProcess.stdout?.on('data', (data) => {
+      console.log(`[Azurite] ${data.toString().trim()}`);
+    });
+    this.azuriteProcess.stderr?.on('data', (data) => {
+      console.error(`[Azurite Error] ${data.toString().trim()}`);
+    });
+    this.azuriteProcess.on('error', (error) => {
+      console.error('Azurite process error:', error);
+    });
     if (!this.azuriteProcess) {
       throw new Error('Failed to start Azurite');
     }
