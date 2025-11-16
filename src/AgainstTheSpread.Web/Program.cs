@@ -14,7 +14,8 @@ var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? builder.HostEnvironment.
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(apiBaseUrl) });
 builder.Services.AddScoped<ApiService>();
 
-// Register a separate HttpClient for TeamLogoService that points to the web app itself
+// Register services with their own HttpClient instances for web app base address
+// These are scoped services so HttpClient will be disposed when the scope ends
 builder.Services.AddScoped<ITeamLogoService>(sp =>
 {
     var httpClient = new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) };
@@ -22,7 +23,6 @@ builder.Services.AddScoped<ITeamLogoService>(sp =>
     return new TeamLogoService(logger, httpClient);
 });
 
-// Register TeamColorService that points to the web app itself
 builder.Services.AddScoped<ITeamColorService>(sp =>
 {
     var httpClient = new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) };
@@ -30,11 +30,12 @@ builder.Services.AddScoped<ITeamColorService>(sp =>
     return new TeamColorService(logger, httpClient);
 });
 
-// Register AuthenticationService with a separate HttpClient for auth endpoints
+// Register AuthenticationService with HttpClient and logger
 builder.Services.AddScoped<IAuthenticationService>(sp =>
 {
     var httpClient = new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) };
-    return new AuthenticationService(httpClient);
+    var logger = sp.GetRequiredService<ILogger<AuthenticationService>>();
+    return new AuthenticationService(httpClient, logger);
 });
 
 await builder.Build().RunAsync();

@@ -19,6 +19,11 @@ public interface IAuthenticationService
     /// Get the full user info
     /// </summary>
     Task<UserInfo?> GetUserInfoAsync();
+
+    /// <summary>
+    /// Clear cached authentication information
+    /// </summary>
+    void ClearCache();
 }
 
 /// <summary>

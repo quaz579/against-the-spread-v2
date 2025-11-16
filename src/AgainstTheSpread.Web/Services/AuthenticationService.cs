@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
 namespace AgainstTheSpread.Web.Services;
 
@@ -8,11 +9,13 @@ namespace AgainstTheSpread.Web.Services;
 public class AuthenticationService : IAuthenticationService
 {
     private readonly HttpClient _httpClient;
+    private readonly ILogger<AuthenticationService> _logger;
     private UserInfo? _cachedUserInfo;
 
-    public AuthenticationService(HttpClient httpClient)
+    public AuthenticationService(HttpClient httpClient, ILogger<AuthenticationService> logger)
     {
         _httpClient = httpClient;
+        _logger = logger;
     }
 
     public async Task<bool> IsAuthenticatedAsync()
@@ -59,13 +62,26 @@ public class AuthenticationService : IAuthenticationService
                 }
             }
         }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "HTTP request error checking authentication status");
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "JSON deserialization error checking authentication status");
+        }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error checking auth: {ex.Message}");
+            _logger.LogError(ex, "Unexpected error checking authentication status");
         }
 
         // Return non-authenticated user info
         return new UserInfo { IsAuthenticated = false };
+    }
+
+    public void ClearCache()
+    {
+        _cachedUserInfo = null;
     }
 
     // Helper classes for SWA auth
