@@ -55,6 +55,17 @@ export class TestEnvironment {
       throw new Error('Failed to start Azurite');
     }
 
+    // Attach output and error handlers
+    this.azuriteProcess.stdout?.on('data', (data) => {
+      console.log(`[Azurite] ${data.toString().trim()}`);
+    });
+    this.azuriteProcess.stderr?.on('data', (data) => {
+      console.error(`[Azurite Error] ${data.toString().trim()}`);
+    });
+    this.azuriteProcess.on('error', (error) => {
+      console.error('Azurite process error:', error);
+    });
+
     // Wait for Azurite to be ready
     await this.waitForService('http://127.0.0.1:10000/devstoreaccount1', 30000);
     console.log('Azurite started successfully');
@@ -85,6 +96,17 @@ export class TestEnvironment {
       throw new Error('Failed to start Azure Functions');
     }
 
+    // Attach output and error handlers
+    this.functionsProcess.stdout?.on('data', (data) => {
+      console.log(`[Functions] ${data.toString().trim()}`);
+    });
+    this.functionsProcess.stderr?.on('data', (data) => {
+      console.error(`[Functions Error] ${data.toString().trim()}`);
+    });
+    this.functionsProcess.on('error', (error) => {
+      console.error('Functions process error:', error);
+    });
+
     // Wait for Functions to be ready
     await this.waitForService(`${this.functionsUrl}/api/weeks?year=2025`, 90000);
     console.log('Azure Functions started successfully');
@@ -113,6 +135,17 @@ export class TestEnvironment {
     if (!this.webProcess) {
       throw new Error('Failed to start Web App');
     }
+
+    // Attach output and error handlers
+    this.webProcess.stdout?.on('data', (data) => {
+      console.log(`[Web App] ${data.toString().trim()}`);
+    });
+    this.webProcess.stderr?.on('data', (data) => {
+      console.error(`[Web App Error] ${data.toString().trim()}`);
+    });
+    this.webProcess.on('error', (error) => {
+      console.error('Web App process error:', error);
+    });
 
     // Wait for Web App to be ready
     await this.waitForService(this.webUrl, 90000);
@@ -154,7 +187,8 @@ export class TestEnvironment {
       ]
     };
     
-    await jsonBlobClient.upload(JSON.stringify(weeklyLinesJson, null, 2), JSON.stringify(weeklyLinesJson).length);
+    const jsonContent = JSON.stringify(weeklyLinesJson, null, 2);
+    await jsonBlobClient.upload(jsonContent, jsonContent.length);
     
     console.log(`Successfully uploaded Week ${week} lines`);
   }
@@ -188,12 +222,25 @@ export class TestEnvironment {
   private async runCommand(command: string, args: string[], cwd: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const process = spawn(command, args, { cwd });
+      let stdout = '';
+      let stderr = '';
+
+      if (process.stdout) {
+        process.stdout.on('data', (data) => {
+          stdout += data.toString();
+        });
+      }
+      if (process.stderr) {
+        process.stderr.on('data', (data) => {
+          stderr += data.toString();
+        });
+      }
       
       process.on('close', (code) => {
         if (code === 0) {
           resolve();
         } else {
-          reject(new Error(`Command failed with exit code ${code}`));
+          reject(new Error(`Command failed with exit code ${code}\nStdout: ${stdout}\nStderr: ${stderr}`));
         }
       });
       
@@ -207,20 +254,38 @@ export class TestEnvironment {
   async cleanup(): Promise<void> {
     console.log('Shutting down test environment...');
     
-    if (this.webProcess) {
-      this.webProcess.kill('SIGTERM');
-    }
-    
-    if (this.functionsProcess) {
-      this.functionsProcess.kill('SIGTERM');
-    }
-    
-    if (this.azuriteProcess) {
-      this.azuriteProcess.kill('SIGTERM');
-    }
-    
-    // Wait a bit for graceful shutdown
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Helper to kill and confirm process termination
+    const killAndWait = async (proc?: ChildProcess, name?: string): Promise<void> => {
+      if (!proc || proc.killed) return;
+      
+      proc.kill('SIGTERM');
+      
+      // Wait up to 2 seconds for graceful exit
+      let exited = false;
+      const exitPromise = new Promise<void>(resolve => {
+        proc.once('exit', () => {
+          exited = true;
+          resolve();
+        });
+      });
+      
+      await Promise.race([
+        exitPromise,
+        new Promise(resolve => setTimeout(resolve, 2000))
+      ]);
+      
+      if (!exited && proc.pid) {
+        console.warn(`Process ${name} did not exit gracefully, sending SIGKILL`);
+        proc.kill('SIGKILL');
+        await exitPromise;
+      }
+    };
+
+    await Promise.all([
+      killAndWait(this.webProcess, 'webProcess'),
+      killAndWait(this.functionsProcess, 'functionsProcess'),
+      killAndWait(this.azuriteProcess, 'azuriteProcess')
+    ]);
     
     console.log('Test environment shut down');
   }
