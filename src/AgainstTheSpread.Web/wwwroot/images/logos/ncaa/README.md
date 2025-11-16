@@ -113,6 +113,7 @@ The application supports 156 NCAA Division I football teams, including both FBS 
 | James Madison | 256 | ![](256.png) |
 | Kansas | 2305 | ![](2305.png) |
 | Kansas State | 2306 | ![](2306.png) |
+| Kennesaw State | 338 | ![](338.png) |
 | Kent State | 2309 | ![](2309.png) |
 | Kentucky | 96 | ![](96.png) |
 | Liberty | 2335 | ![](2335.png) |
@@ -214,7 +215,6 @@ The following FCS teams have been added to support games that appear in weekly b
 | Eastern Kentucky | 2198 |
 | Elon | 2210 |
 | Idaho | 70 |
-| Kennesaw State | 338 |
 | Lamar | 2320 |
 | Merrimack | 2620 |
 | Missouri State | 2623 |
@@ -225,7 +225,6 @@ The following FCS teams have been added to support games that appear in weekly b
 | SF Austin | 2612 |
 | St Francis PA | 2545 |
 | Stony Brook | 2615 |
-| UL Lafayette | 309 |
 | UT Martin | 2632 |
 
 ## Team Colors
