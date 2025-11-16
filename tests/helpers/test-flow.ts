@@ -48,10 +48,12 @@ export async function testWeekFlow(page: Page, week: number, userName: string): 
   await page.waitForLoadState('networkidle');
   
   // Wait for games to load - wait for game buttons to appear
-  await page.waitForSelector('button.btn:not(:has-text("Back"))', { state: 'visible', timeout: 10000 });
+  // Game buttons have team logos, we can wait for those to ensure the page is loaded
+  await page.waitForSelector('.card button', { state: 'visible', timeout: 10000 });
 
   // Select 6 games by clicking on team buttons
-  const gameButtons = page.locator('button.btn:not(:has-text("Back"))');
+  // Game buttons are in cards and are not the "Back" button
+  const gameButtons = page.locator('.card button');
   const buttonCount = await gameButtons.count();
   expect(buttonCount).toBeGreaterThanOrEqual(6);
 
@@ -60,8 +62,8 @@ export async function testWeekFlow(page: Page, week: number, userName: string): 
     const button = gameButtons.nth(i);
     await expect(button).toBeEnabled();
     await button.click();
-    // Wait for the button state to update
-    await expect(button).toHaveClass(/selected|active|btn-success/);
+    // Wait for the button state to update - the app uses 'btn-selected' class
+    await expect(button).toHaveClass(/btn-selected/);
   }
 
   // Wait for download button to appear
