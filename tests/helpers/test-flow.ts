@@ -15,14 +15,17 @@ export async function testWeekFlow(page: Page, week: number, userName: string): 
   await page.goto('/');
   await page.waitForLoadState('networkidle');
 
-  // Navigate to picks page
-  const picksLink = page.locator('text=/make.*picks/i, a[href="/picks"]').first();
-  if (await picksLink.count() > 0) {
+  // Navigate to picks page - try to find a link to picks page
+  const picksLink = page.locator('a[href="/picks"]').first();
+  const picksLinkCount = await picksLink.count();
+  if (picksLinkCount > 0) {
     await picksLink.click();
+    await page.waitForLoadState('networkidle');
   } else {
+    // Direct navigation if link not found
     await page.goto('/picks');
+    await page.waitForLoadState('networkidle');
   }
-  await page.waitForLoadState('networkidle');
 
   // Enter name
   const nameInput = page.locator('input#userName, input[placeholder*="name" i]');
