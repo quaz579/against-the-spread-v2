@@ -235,7 +235,20 @@ export class TestEnvironment {
           stderr += data.toString();
         });
       }
-      
+      let stdout = '';
+      let stderr = '';
+
+      if (process.stdout) {
+        process.stdout.on('data', (data) => {
+          stdout += data.toString();
+        });
+      }
+      if (process.stderr) {
+        process.stderr.on('data', (data) => {
+          stderr += data.toString();
+        });
+      }
+
       process.on('close', (code) => {
         if (code === 0) {
           resolve();
@@ -243,7 +256,6 @@ export class TestEnvironment {
           reject(new Error(`Command failed with exit code ${code}\nStdout: ${stdout}\nStderr: ${stderr}`));
         }
       });
-      
       process.on('error', reject);
     });
   }
