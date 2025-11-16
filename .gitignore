@@ -122,6 +122,16 @@ test-output/
 *.xlsx
 !reference-docs/*.xlsx
 
+## Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
+## Tests
+tests/node_modules/
+tests/dist/
+tests/.test-state.json
+
 ## Backup files
 *.bak
 *.backup

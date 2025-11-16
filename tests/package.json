@@ -1,0 +1,29 @@
+{
+  "name": "against-the-spread-smoke-tests",
+  "version": "1.0.0",
+  "description": "Playwright smoke tests for Against The Spread application",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "test:report": "playwright show-report"
+  },
+  "keywords": [
+    "playwright",
+    "testing",
+    "e2e"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@types/node": "^22.0.0",
+    "azurite": "^3.33.0",
+    "typescript": "^5.6.0"
+  },
+  "dependencies": {
+    "@azure/storage-blob": "^12.26.0",
+    "exceljs": "^4.4.0"
+  }
+}
