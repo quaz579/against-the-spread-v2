@@ -201,12 +201,16 @@
 
     private void Login()
     {
-        Navigation.NavigateTo("/.auth/login/google?post_login_redirect_uri=/admin", true);
+        // Use absolute URL for redirect to ensure it works in staging environments
+        var redirectUri = new Uri(new Uri(Navigation.BaseUri), "/admin").ToString();
+        Navigation.NavigateTo($"/.auth/login/google?post_login_redirect_uri={Uri.EscapeDataString(redirectUri)}", true);
     }
 
     private void Logout()
     {
-        Navigation.NavigateTo("/.auth/logout?post_logout_redirect_uri=/", true);
+        // Use absolute URL for redirect to ensure it works in staging environments
+        var redirectUri = Navigation.BaseUri.TrimEnd('/');
+        Navigation.NavigateTo($"/.auth/logout?post_logout_redirect_uri={Uri.EscapeDataString(redirectUri)}", true);
     }
 
     private void OnFileSelected(InputFileChangeEventArgs e)
