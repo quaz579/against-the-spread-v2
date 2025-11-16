@@ -94,6 +94,7 @@ jobs:
           api_location: "build/api"
           skip_app_build: true
           skip_api_build: true
+          production_branch: "main"
           github_id_token: ${{ steps.idtoken.outputs.result }}
 
   deploy_prod:
@@ -132,6 +133,7 @@ jobs:
           api_location: "build/api"
           skip_app_build: true
           skip_api_build: true
+          production_branch: "main"
           github_id_token: ${{ steps.idtoken.outputs.result }}
 
   close_pull_request_job:
