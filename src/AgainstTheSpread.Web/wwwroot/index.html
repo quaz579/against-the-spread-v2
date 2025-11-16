@@ -71,11 +71,17 @@
     <!-- File download helper -->
     <script>
         window.downloadFile = function (fileName, base64Content) {
-            const linkSource = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + base64Content;
-            const downloadLink = document.createElement('a');
-            downloadLink.href = linkSource;
-            downloadLink.download = fileName;
-            downloadLink.click();
+            return new Promise((resolve) => {
+                const linkSource = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + base64Content;
+                const downloadLink = document.createElement('a');
+                downloadLink.href = linkSource;
+                downloadLink.download = fileName;
+                downloadLink.click();
+                // Resolve immediately after click - the download will continue in the background
+                // We can't truly detect when the download dialog is shown, but this ensures
+                // the click event has been processed before proceeding
+                setTimeout(resolve, 100);
+            });
         };
     </script>
 </body>

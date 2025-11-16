@@ -421,7 +421,9 @@
     private string SanitizeFileName(string input)
     {
         var invalidChars = Path.GetInvalidFileNameChars();
-        return string.Join("_", input.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries)).TrimEnd();
+        // Replace invalid characters with underscore, but keep spaces
+        var sanitized = string.Concat(input.Select(c => invalidChars.Contains(c) ? '_' : c));
+        return sanitized.TrimEnd();
     }
 
     private string BuildGmailComposeUrl()
@@ -457,11 +459,8 @@
         // Download the file first
         if (generatedExcelBytes != null && generatedFileName != null)
         {
+            // Wait for the download click event to be processed
             await JSRuntime.InvokeVoidAsync("downloadFile", generatedFileName, Convert.ToBase64String(generatedExcelBytes));
-            
-            // Small delay to ensure browser processes the download before opening a new window.
-            // This is a workaround for browser behavior and may not work reliably across all browsers or network conditions.
-            await Task.Delay(500);
             
             // Then open Gmail
             var gmailUrl = BuildGmailComposeUrl();
