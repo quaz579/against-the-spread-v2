@@ -13,10 +13,10 @@ on:
       - dev
 
 jobs:
-  build_artifacts:
+  build_web:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
-    name: Build Artifacts
+    name: Build Web Artifact
     steps:
       - uses: actions/checkout@v3
         with:
@@ -28,14 +28,28 @@ jobs:
           dotnet-version: "8.0.x"
       - name: Publish Blazor WebAssembly
         run: dotnet publish src/AgainstTheSpread.Web/AgainstTheSpread.Web.csproj -c Release -o build/web
-      - name: Publish Azure Functions API
-        run: dotnet publish src/AgainstTheSpread.Functions/AgainstTheSpread.Functions.csproj -c Release -o build/api
       - name: Upload web artifact
         uses: actions/upload-artifact@v4
         with:
           name: web-dist
           path: build/web
           if-no-files-found: error
+
+  build_api:
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
+    runs-on: ubuntu-latest
+    name: Build API Artifact
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+          lfs: false
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: "8.0.x"
+      - name: Publish Azure Functions API
+        run: dotnet publish src/AgainstTheSpread.Functions/AgainstTheSpread.Functions.csproj -c Release -o build/api
       - name: Upload api artifact
         uses: actions/upload-artifact@v4
         with:
@@ -45,7 +59,7 @@ jobs:
 
   deploy_smoke:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
-    needs: build_artifacts
+    needs: [build_web, build_api]
     runs-on: ubuntu-latest
     name: Deploy Smoke Environment
     permissions:
@@ -68,7 +82,6 @@ jobs:
         id: idtoken
         with:
           script: |
-            const core = require('@actions/core')
             return await core.getIDToken()
           result-encoding: string
       - name: Deploy to Smoke
@@ -84,7 +97,7 @@ jobs:
 
   deploy_prod:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: build_artifacts
+    needs: [build_web, build_api]
     runs-on: ubuntu-latest
     name: Deploy Production Environment
     permissions:
@@ -107,7 +120,6 @@ jobs:
         id: idtoken
         with:
           script: |
-            const core = require('@actions/core')
             return await core.getIDToken()
           result-encoding: string
       - name: Deploy to Production
