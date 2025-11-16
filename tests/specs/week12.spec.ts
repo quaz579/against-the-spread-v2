@@ -40,9 +40,7 @@ test.describe('Week 12 Smoke Tests', () => {
     await page.waitForTimeout(2000); // Wait for games to load
 
     // Select 6 games by clicking on team buttons
-    const gameButtons = page.locator('button.btn').filter({ 
-      hasNot: page.locator('text=Back') 
-    });
+    const gameButtons = page.locator('button.btn:not(:has-text("Back"))');
     const buttonCount = await gameButtons.count();
     expect(buttonCount).toBeGreaterThanOrEqual(6);
 
