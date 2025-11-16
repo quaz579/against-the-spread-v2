@@ -230,7 +230,7 @@ The following FCS teams have been added to support games that appear in weekly b
 
 ## Team Colors
 
-Team colors are maintained in a separate `team-color-mapping.json` file at `wwwroot/team-color-mapping.json`. Each team has a primary and secondary color defined in hex format.
+Team colors are maintained in a separate `team-color-mapping.json` file at `wwwroot/team-color-mapping.json`. Each team has a primary and secondary color defined as 6-digit hexadecimal color codes with a '#' prefix (e.g., #RRGGBB).
 
 Example:
 ```json
