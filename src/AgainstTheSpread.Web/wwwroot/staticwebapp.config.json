@@ -24,6 +24,9 @@
       }
     }
   },
+  "platform": {
+    "apiRuntime": "dotnet-isolated:8.0"
+  },
   "routes": [
     {
       "route": "/api/upload-lines",

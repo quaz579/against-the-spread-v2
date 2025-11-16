@@ -12,41 +12,125 @@ on:
       - dev
 
 jobs:
-  build_and_deploy_job:
+  build_web:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
-    name: Build and Deploy Job
-    permissions:
-       id-token: write
-       contents: read
+    name: Build Web Artifact
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: true
           lfs: false
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: "8.0.x"
+      - name: Publish Blazor WebAssembly
+        run: dotnet publish src/AgainstTheSpread.Web/AgainstTheSpread.Web.csproj -c Release -o build/web
+      - name: Upload web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: build/web
+          if-no-files-found: error
+
+  build_api:
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
+    runs-on: ubuntu-latest
+    name: Build API Artifact
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+          lfs: false
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: "8.0.x"
+      - name: Publish Azure Functions API
+        run: dotnet publish src/AgainstTheSpread.Functions/AgainstTheSpread.Functions.csproj -c Release -o build/api
+      - name: Upload api artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-dist
+          path: build/api
+          if-no-files-found: error
+
+  deploy_smoke:
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
+    needs: [build_web, build_api]
+    runs-on: ubuntu-latest
+    name: Deploy Smoke Environment
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web-dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: api-dist
+          path: api-dist
       - name: Install OIDC Client from Core Package
         run: npm install @actions/core@1.6.0 @actions/http-client
       - name: Get Id Token
         uses: actions/github-script@v6
         id: idtoken
         with:
-           script: |
-               const coredemo = require('@actions/core')
-               return await coredemo.getIDToken()
-           result-encoding: string
-      - name: Build And Deploy
-        id: builddeploy
+          script: |
+            return await core.getIDToken()
+          result-encoding: string
+      - name: Deploy to Smoke
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_AGREEABLE_RIVER_0E2F38010 }}
           action: "upload"
-          ###### Repository/Build Configurations - These values can be configured to match your app requirements. ######
-          # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
-          app_location: "./src/AgainstTheSpread.Web" # App source code path
-          api_location: "./src/AgainstTheSpread.Functions" # Api source code path - optional
-          output_location: "wwwroot" # Built app content directory - optional
+          app_location: "web-dist/wwwroot"
+          api_location: "api-dist"
+          skip_app_build: true
+          skip_api_build: true
           github_id_token: ${{ steps.idtoken.outputs.result }}
-          ###### End of Repository/Build Configurations ######
+
+  deploy_prod:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build_web, build_api]
+    runs-on: ubuntu-latest
+    name: Deploy Production Environment
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web-dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: api-dist
+          path: api-dist
+      - name: Install OIDC Client from Core Package
+        run: npm install @actions/core@1.6.0 @actions/http-client
+      - name: Get Id Token
+        uses: actions/github-script@v6
+        id: idtoken
+        with:
+          script: |
+            return await core.getIDToken()
+          result-encoding: string
+      - name: Deploy to Production
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_AGREEABLE_RIVER_0E2F38010 }}
+          action: "upload"
+          app_location: "web-dist/wwwroot"
+          api_location: "api-dist"
+          skip_app_build: true
+          skip_api_build: true
+          github_id_token: ${{ steps.idtoken.outputs.result }}
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
@@ -59,4 +143,5 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_AGREEABLE_RIVER_0E2F38010 }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
+          app_location: "."
           action: "close"
