@@ -42,7 +42,13 @@ fi
 # Test 2: Build .NET solution
 echo ""
 echo "2️⃣ Testing .NET Build..."
-cd /home/runner/work/against-the-spread/against-the-spread
+# Dynamically determine repo root (works in GitHub Actions, Codespaces, local)
+if REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+    cd "$REPO_ROOT"
+else
+    # Fallback: use script directory
+    cd "$(dirname "$0")"
+fi
 if dotnet build --no-restore --configuration Release > /dev/null 2>&1; then
     echo "   ✅ .NET solution builds successfully"
 else
