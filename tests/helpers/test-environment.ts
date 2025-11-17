@@ -151,6 +151,7 @@ export class TestEnvironment {
       cwd: webPath,
       env: {
         ...process.env,
+        API_BASE_URL: this.functionsUrl,
         ASPNETCORE_ENVIRONMENT: 'Development'
       }
     });
