@@ -9,10 +9,8 @@ A Progressive Web Application (PWA) for managing a weekly college football pick'
 ## 🎯 Features
 
 - **Admin Panel**: Upload weekly betting lines with Google OAuth authentication
-- **Optional Google Login**: Sign in to access Gmail integration for picks submission
 - **Mobile-First PWA**: Install as native app on iOS/Android with custom football icon
 - **Excel Upload/Download**: Upload betting lines and generate formatted picks
-- **Gmail Integration**: Send picks via Gmail with one click (for authenticated users)
 - **Offline Capable**: Works without internet connection (service worker)
 - **Secure Authentication**: Google OAuth with email-based authorization
 - **Dev/Prod Environments**: Branch-based deployments (main = production, dev = staging)
@@ -246,29 +244,12 @@ az storage blob upload \
 
 ### User: Make Picks
 
-#### Standard Flow (No Login Required)
 1. Navigate to the web app
 2. Select the current week from dropdown
 3. Tap 6 games to select them
 4. Enter your name
-5. Click "Generate Picks"
-6. Download Excel file
-7. Email the file to admin
-
-#### Enhanced Flow (With Google Login - Optional)
-1. Click "Sign in with Google" (optional)
-2. Navigate to picks page
-3. Select the current week from dropdown
-4. Tap 6 games to select them
-5. Enter your name
-6. Click "Generate Picks"
-7. Choose your delivery method:
-   - **Download File**: Standard download to your device
-   - **Open in Gmail**: Opens Gmail compose with pre-filled subject/body (attach file manually)
-   - **Download & Open Gmail**: Both actions for convenience
-8. If using Gmail option, attach the downloaded file and send
-
-**Note**: Login is completely optional. The app works exactly as before without authentication.
+5. Click "Download Picks"
+6. Open Excel file and email to admin
 
 ## 🔒 Security
 

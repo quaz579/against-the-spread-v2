@@ -30,12 +30,4 @@ builder.Services.AddScoped<ITeamColorService>(sp =>
     return new TeamColorService(logger, httpClient);
 });
 
-// Register AuthenticationService with HttpClient and logger
-builder.Services.AddScoped<IAuthenticationService>(sp =>
-{
-    var httpClient = new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) };
-    var logger = sp.GetRequiredService<ILogger<AuthenticationService>>();
-    return new AuthenticationService(httpClient, logger);
-});
-
 await builder.Build().RunAsync();

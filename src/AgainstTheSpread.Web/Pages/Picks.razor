@@ -6,48 +6,13 @@
 @inject ApiService ApiService
 @inject ITeamLogoService TeamLogoService
 @inject ITeamColorService TeamColorService
-@inject IAuthenticationService AuthService
 @inject HttpClient HttpClient
 @inject IJSRuntime JSRuntime
-@inject NavigationManager Navigation
-@inject ILogger<Picks> Logger
 
 <PageTitle>Make Your Picks - Against The Spread</PageTitle>
 
 <div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>🏈 Make Your Weekly Picks</h1>
-        
-        <!-- Optional Google Login -->
-        @if (!isAuthCheckComplete)
-        {
-            <div class="spinner-border spinner-border-sm text-secondary" role="status">
-                <span class="visually-hidden">Checking auth...</span>
-            </div>
-        }
-        else if (isAuthenticated)
-        {
-            <div class="d-flex align-items-center gap-2">
-                <span class="text-muted small">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-person-circle me-1" viewBox="0 0 16 16">
-                        <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
-                        <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
-                    </svg>
-                    @userEmail
-                </span>
-                <button class="btn btn-outline-secondary btn-sm" @onclick="Logout">Sign Out</button>
-            </div>
-        }
-        else
-        {
-            <button class="btn btn-outline-primary btn-sm" @onclick="Login">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-google me-1" viewBox="0 0 16 16">
-                    <path d="M15.545 6.558a9.4 9.4 0 0 1 .139 1.626c0 2.434-.87 4.492-2.384 5.885h.002C11.978 15.292 10.158 16 8 16A8 8 0 1 1 8 0a7.7 7.7 0 0 1 5.352 2.082l-2.284 2.284A4.35 4.35 0 0 0 8 3.166c-2.087 0-3.86 1.408-4.492 3.304a4.8 4.8 0 0 0 0 3.063h.003c.635 1.893 2.405 3.301 4.492 3.301 1.078 0 2.004-.276 2.722-.764h-.003a3.7 3.7 0 0 0 1.599-2.431H8v-3.08z"/>
-                </svg>
-                Sign in with Google
-            </button>
-        }
-    </div>
+    <h1 class="mb-4">🏈 Make Your Weekly Picks</h1>
 
     @if (isLoading)
     {
@@ -178,52 +143,19 @@
         {
             <div class="fixed-bottom bg-white border-top p-3 shadow">
                 <div class="container">
-                    @if (!showDeliveryOptions)
-                    {
-                        <div class="d-grid">
-                            <button class="btn btn-success btn-lg" @onclick="GeneratePicks" disabled="@isDownloading">
-                                @if (isDownloading)
-                                {
-                                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                                    <span>Generating Excel...</span>
-                                }
-                                else
-                                {
-                                    <span>📥 Generate Your Picks</span>
-                                }
-                            </button>
-                        </div>
-                    }
-                    else
-                    {
-                        <!-- Delivery Options for Authenticated Users -->
-                        <div class="mb-2">
-                            <strong>Your picks are ready! How would you like to proceed?</strong>
-                        </div>
-                        <div class="d-grid gap-2">
-                            @if (isAuthenticated)
+                    <div class="d-grid">
+                        <button class="btn btn-success btn-lg" @onclick="GeneratePicks" disabled="@isDownloading">
+                            @if (isDownloading)
                             {
-                                <button class="btn btn-primary" @onclick="DownloadOnly">
-                                    📥 Download File
-                                </button>
-                                <button class="btn btn-info" @onclick="OpenGmailOnly">
-                                    ✉️ Open in Gmail (manual attach)
-                                </button>
-                                <button class="btn btn-success" @onclick="DownloadAndGmail">
-                                    📥 + ✉️ Download & Open Gmail
-                                </button>
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                <span>Generating Excel...</span>
                             }
                             else
                             {
-                                <button class="btn btn-success" @onclick="DownloadOnly">
-                                    📥 Download File
-                                </button>
+                                <span>📥 Generate Your Picks</span>
                             }
-                            <button class="btn btn-outline-secondary" @onclick="CancelDelivery">
-                                Cancel
-                            </button>
-                        </div>
-                    }
+                        </button>
+                    </div>
                 </div>
             </div>
         }
@@ -240,22 +172,9 @@
     private bool isLoading = true;
     private bool isDownloading = false;
     private string? errorMessage = null;
-    
-    // Authentication state
-    private bool isAuthCheckComplete = false;
-    private bool isAuthenticated = false;
-    private string? userEmail = null;
-    
-    // Delivery options
-    private bool showDeliveryOptions = false;
-    private byte[]? generatedExcelBytes = null;
-    private string? generatedFileName = null;
 
     protected override async Task OnInitializedAsync()
     {
-        // Check authentication status
-        await CheckAuthStatus();
-        
         // Initialize the team logo service and team color service
         await TeamLogoService.InitializeAsync(HttpClient);
         await TeamColorService.InitializeAsync(HttpClient);
@@ -338,42 +257,6 @@
         }
     }
 
-    private async Task CheckAuthStatus()
-    {
-        try
-        {
-            var userInfo = await AuthService.GetUserInfoAsync();
-            isAuthenticated = userInfo?.IsAuthenticated ?? false;
-            userEmail = userInfo?.Email;
-        }
-        catch (HttpRequestException ex)
-        {
-            Logger.LogError(ex, "Network/auth error checking auth status");
-            isAuthenticated = false;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Unexpected error checking auth status");
-            isAuthenticated = false;
-        }
-        finally
-        {
-            isAuthCheckComplete = true;
-        }
-    }
-
-    private void Login()
-    {
-        Navigation.NavigateTo("/.auth/login/google?post_login_redirect_uri=/picks", true);
-    }
-
-    private void Logout()
-    {
-        // Clear cached authentication info before logout
-        AuthService.ClearCache();
-        Navigation.NavigateTo("/.auth/logout?post_logout_redirect_uri=/picks", true);
-    }
-
     private async Task GeneratePicks()
     {
         if (selectedPicks.Count != 6)
@@ -396,12 +279,13 @@
 
             if (excelBytes != null)
             {
-                // Store the generated file
-                generatedExcelBytes = excelBytes;
-                generatedFileName = $"{SanitizeFileName(userName)}_Week_{selectedWeek}_Picks.xlsx";
-                
-                // Show delivery options
-                showDeliveryOptions = true;
+                // Download file using JavaScript interop
+                var fileName = $"{SanitizeFileName(userName)}_Week_{selectedWeek}_Picks.xlsx";
+                await JSRuntime.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(excelBytes));
+
+                // Show success message and reset
+                await JSRuntime.InvokeVoidAsync("alert", "✅ Your picks have been downloaded successfully!");
+                GoBack();
             }
             else
             {
@@ -410,7 +294,7 @@
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error generating picks: {ex.Message}";
+            errorMessage = $"Error downloading picks: {ex.Message}";
         }
         finally
         {
@@ -424,67 +308,6 @@
         // Replace invalid characters with underscore, but keep spaces
         var sanitized = string.Concat(input.Select(c => invalidChars.Contains(c) ? '_' : c));
         return sanitized.TrimEnd();
-    }
-
-    private string BuildGmailComposeUrl()
-    {
-        var subject = Uri.EscapeDataString($"Week {selectedWeek} Picks - {userName}");
-        var body = Uri.EscapeDataString($"Hi,\n\nPlease find attached my picks for Week {selectedWeek}.\n\nName: {userName}\nWeek: {selectedWeek}\nYear: {selectedYear}\n\nNote: Please attach the file '{generatedFileName}' that was just downloaded.\n\nThanks!");
-        return $"https://mail.google.com/mail/?view=cm&fs=1&su={subject}&body={body}";
-    }
-
-    private async Task DownloadOnly()
-    {
-        if (generatedExcelBytes != null && generatedFileName != null)
-        {
-            await JSRuntime.InvokeVoidAsync("downloadFile", generatedFileName, Convert.ToBase64String(generatedExcelBytes));
-            await JSRuntime.InvokeVoidAsync("alert", "✅ Your picks have been downloaded successfully!");
-            ResetAfterDelivery();
-        }
-    }
-
-    private async Task OpenGmailOnly()
-    {
-        // Open Gmail compose window with pre-filled information
-        var gmailUrl = BuildGmailComposeUrl();
-        
-        await JSRuntime.InvokeVoidAsync("open", gmailUrl, "_blank");
-        await JSRuntime.InvokeVoidAsync("alert", "Gmail compose window opened! Please attach the downloaded file manually.");
-        
-        ResetAfterDelivery();
-    }
-
-    private async Task DownloadAndGmail()
-    {
-        // Download the file first
-        if (generatedExcelBytes != null && generatedFileName != null)
-        {
-            // Wait for the download click event to be processed
-            await JSRuntime.InvokeVoidAsync("downloadFile", generatedFileName, Convert.ToBase64String(generatedExcelBytes));
-            
-            // Then open Gmail
-            var gmailUrl = BuildGmailComposeUrl();
-            
-            await JSRuntime.InvokeVoidAsync("open", gmailUrl, "_blank");
-            await JSRuntime.InvokeVoidAsync("alert", "✅ File downloaded and Gmail opened! Please attach the file to your email.");
-            
-            ResetAfterDelivery();
-        }
-    }
-
-    private void CancelDelivery()
-    {
-        showDeliveryOptions = false;
-        generatedExcelBytes = null;
-        generatedFileName = null;
-    }
-
-    private void ResetAfterDelivery()
-    {
-        showDeliveryOptions = false;
-        generatedExcelBytes = null;
-        generatedFileName = null;
-        GoBack();
     }
 
     private string GetButtonClass(bool isSelected, TeamColors? teamColors)
