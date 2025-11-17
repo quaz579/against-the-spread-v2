@@ -60,18 +60,20 @@ export async function testWeekFlow(page: Page, week: number, userName: string): 
   await weekSelect.waitFor({ state: 'attached' });
   await expect(weekSelect).not.toBeDisabled();
 
-  // Select Week and trigger change event to ensure Blazor binds the value
+  // Select Week
   await weekSelect.selectOption(String(week));
-  await weekSelect.dispatchEvent('change');
   
-  // Wait for Blazor to process the change
-  await page.waitForTimeout(1000);
-
-  // The button shows as enabled visually but Blazor's disabled attribute hasn't updated yet
-  // This is a known issue with Blazor WASM data binding and Playwright
-  // Force click the button since the form is actually valid
-  const continueButton = page.getByRole('button', { name: /continue/i });
-  await continueButton.click({ force: true });
+  // Give Blazor extra time to bind the selected week value
+  await page.waitForTimeout(3000);
+  
+  // Try to click the Continue button - it should work now after the longer wait
+  const continueButton = page.locator('button.btn-primary.btn-lg');
+  
+  // Use Playwright's click with force option and wait for navigation
+  await Promise.all([
+    page.waitForLoadState('networkidle'),
+    continueButton.click({ force: true })
+  ]);
   
   // Wait for loading spinner to disappear (indicates games are loading)
   await page.waitForSelector('.spinner-border', { state: 'hidden', timeout: 10000 });
