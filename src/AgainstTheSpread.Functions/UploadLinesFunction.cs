@@ -176,7 +176,16 @@ public class UploadLinesFunction
 
             if (string.IsNullOrEmpty(userEmail))
             {
-                _logger.LogWarning("No email claim found for user {UserId}", principal.UserId);
+                // Try UserDetails property - Google OAuth in SWA often stores email here
+                userEmail = principal.UserDetails;
+                _logger.LogInformation("Email retrieved from UserDetails for user {UserId}", principal.UserId);
+            }
+
+            if (string.IsNullOrEmpty(userEmail))
+            {
+                _logger.LogWarning("No email found in claims or UserDetails for user {UserId}. Claims: {Claims}", 
+                    principal.UserId, 
+                    principal.Claims?.Select(c => $"{c.Type}={c.Value}").ToList() ?? new List<string>());
                 errorResponse = req.CreateResponse(HttpStatusCode.Forbidden);
                 errorResponse.WriteStringAsync("Email not found in authentication").Wait();
                 return false;
