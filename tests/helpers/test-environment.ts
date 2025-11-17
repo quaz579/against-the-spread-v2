@@ -95,10 +95,13 @@ export class TestEnvironment {
           AzureWebJobsStorage: this.azuriteConnectionString,
           AZURE_STORAGE_CONNECTION_STRING: this.azuriteConnectionString,
           FUNCTIONS_WORKER_RUNTIME: "dotnet-isolated"
+        },
+        Host: {
+          CORS: "*"
         }
       };
       fs.writeFileSync(localSettingsPath, JSON.stringify(localSettings, null, 2));
-      console.log('Created local.settings.json for Functions');
+      console.log('Created local.settings.json for Functions with CORS enabled');
     }
 
     // Build first
