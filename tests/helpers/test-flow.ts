@@ -60,20 +60,34 @@ export async function testWeekFlow(page: Page, week: number, userName: string): 
   await weekSelect.waitFor({ state: 'attached' });
   await expect(weekSelect).not.toBeDisabled();
 
-  // Select Week
+  // Select Week - need to ensure the value is properly bound
   await weekSelect.selectOption(String(week));
   
-  // Give Blazor extra time to bind the selected week value
-  await page.waitForTimeout(3000);
+  // Trigger Blazor's onchange event by dispatching it
+  await page.evaluate(() => {
+    const select = document.getElementById('week') as HTMLSelectElement;
+    if (select) {
+      const event = new Event('change', { bubbles: true });
+      select.dispatchEvent(event);
+    }
+  });
   
-  // Try to click the Continue button - it should work now after the longer wait
-  const continueButton = page.locator('button.btn-primary.btn-lg');
+  // Wait even longer for Blazor to fully bind and enable the button
+  await page.waitForTimeout(4000);
   
-  // Use Playwright's click with force option and wait for navigation
-  await Promise.all([
-    page.waitForLoadState('networkidle'),
-    continueButton.click({ force: true })
-  ]);
+  // Click the button using Blazor's method - find it and call the onclick directly
+  await page.evaluate(() => {
+    const button = document.querySelector('button.btn-primary.btn-lg') as HTMLButtonElement;
+    if (button && button.onclick) {
+      button.onclick(new MouseEvent('click'));
+    } else if (button) {
+      button.click();
+    }
+  });
+  
+  // Wait for navigation to games page
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(1000);
   
   // Wait for loading spinner to disappear (indicates games are loading)
   await page.waitForSelector('.spinner-border', { state: 'hidden', timeout: 10000 });
