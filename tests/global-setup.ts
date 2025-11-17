@@ -19,9 +19,6 @@ export default async function globalSetup() {
     await testEnv.startFunctions();
     await testEnv.startWebApp();
     
-    // Give services a moment to fully stabilize before uploading data
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
     // Upload test data for both years to handle different scenarios
     // - 2024: In case system clock shows 2024 as current year
     // - 2025: For year selection testing and if system shows 2025
