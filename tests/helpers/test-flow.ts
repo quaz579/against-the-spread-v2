@@ -50,12 +50,27 @@ export async function testWeekFlow(page: Page, week: number, userName: string): 
   // The page should now show the form with year selector
   await page.waitForSelector('select#year', { state: 'visible', timeout: 15000 });
 
-  // Enter name - this triggers @bind on input event
-  const nameInput = page.locator('input#userName, input[placeholder*="name" i]');
-  await nameInput.fill(userName);
+  // IMPORTANT: Wait for Blazor WASM to be fully interactive
+  // Blazor may still be loading even after elements are visible
+  // Wait for the form to have interactive bindings by checking spinner is hidden
+  await page.waitForSelector('.spinner-border', { state: 'hidden', timeout: 10000 }).catch(() => {
+    // Spinner might not appear if already loaded
+  });
   
-  // Wait for Blazor to process the name input binding
-  await page.waitForTimeout(500);
+  // Additional wait to ensure Blazor runtime is ready
+  await page.waitForTimeout(1000);
+
+  // Enter name using .type() instead of .fill() - more reliable for Blazor @bind
+  // .type() better triggers Blazor's input events
+  const nameInput = page.locator('input#userName, input[placeholder*="name" i]');
+  await nameInput.clear();
+  await nameInput.type(userName, { delay: 50 }); // Small delay between keystrokes
+  
+  // Manually dispatch input event to ensure Blazor processes it
+  await nameInput.evaluate((el) => {
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  });
 
   // Don't change the year - use the current year (2025) which is already selected
   // Just wait for weeks dropdown to be populated
@@ -63,24 +78,23 @@ export async function testWeekFlow(page: Page, week: number, userName: string): 
   await weekSelect.waitFor({ state: 'attached' });
   await expect(weekSelect).not.toBeDisabled();
 
-  // Select Week - this triggers @bind on change event
+  // Select Week using selectOption, then manually dispatch change event
   await weekSelect.selectOption(String(week));
   
-  // Wait for Blazor to process the week selection binding
-  // The @bind updates selectedWeek which affects the button's disabled state
-  await page.waitForTimeout(1000);
+  // Manually dispatch change event to ensure Blazor processes the selection
+  await weekSelect.evaluate((el) => {
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  });
   
-  // Now wait for the button to actually be enabled (not just appear enabled)
-  // Check if the disabled attribute is removed or false
+  // Wait for Blazor to process the bindings and enable the button
+  // The button's disabled state depends on userName and selectedWeek in C# state
   const continueButton = page.locator('button.btn-primary.btn-lg');
   
-  // Wait up to 10 seconds for button to become truly enabled
-  await page.waitForFunction(() => {
-    const btn = document.querySelector('button.btn-primary.btn-lg') as HTMLButtonElement;
-    return btn && !btn.disabled;
-  }, { timeout: 10000 });
+  // Wait for button to become enabled - Blazor needs time to update C# state
+  await continueButton.waitFor({ state: 'visible', timeout: 5000 });
+  await expect(continueButton).toBeEnabled({ timeout: 10000 });
   
-  // Now click the button - it should work
+  // Click the button
   await continueButton.click();
   
   // Wait for navigation to games page
