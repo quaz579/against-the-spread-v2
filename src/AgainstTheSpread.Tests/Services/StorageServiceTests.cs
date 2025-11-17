@@ -2,6 +2,7 @@ using AgainstTheSpread.Core.Interfaces;
 using AgainstTheSpread.Core.Models;
 using AgainstTheSpread.Core.Services;
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
 using Moq;
 
 namespace AgainstTheSpread.Tests.Services;
@@ -18,9 +19,10 @@ public class StorageServiceTests
         // Arrange
         var connectionString = "UseDevelopmentStorage=true";
         var mockExcelService = new Mock<IExcelService>();
+        var mockLogger = new Mock<ILogger<StorageService>>();
 
         // Act
-        var service = new StorageService(connectionString, mockExcelService.Object);
+        var service = new StorageService(connectionString, mockExcelService.Object, mockLogger.Object);
 
         // Assert
         service.Should().NotBeNull();
