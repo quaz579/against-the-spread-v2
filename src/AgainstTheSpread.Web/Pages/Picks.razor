@@ -144,7 +144,7 @@
             <div class="fixed-bottom bg-white border-top p-3 shadow">
                 <div class="container">
                     <div class="d-grid">
-                        <button class="btn btn-success btn-lg" @onclick="DownloadPicks" disabled="@isDownloading">
+                        <button class="btn btn-success btn-lg" @onclick="GeneratePicks" disabled="@isDownloading">
                             @if (isDownloading)
                             {
                                 <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
@@ -152,7 +152,7 @@
                             }
                             else
                             {
-                                <span>📥 Download Your Picks (Excel)</span>
+                                <span>📥 Generate Your Picks</span>
                             }
                         </button>
                     </div>
@@ -257,7 +257,7 @@
         }
     }
 
-    private async Task DownloadPicks()
+    private async Task GeneratePicks()
     {
         if (selectedPicks.Count != 6)
             return;
@@ -280,7 +280,7 @@
             if (excelBytes != null)
             {
                 // Download file using JavaScript interop
-                var fileName = $"{userName.Replace(" ", "_")}_Week_{selectedWeek}_Picks.xlsx";
+                var fileName = $"{SanitizeFileName(userName)}_Week_{selectedWeek}_Picks.xlsx";
                 await JSRuntime.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(excelBytes));
 
                 // Show success message and reset
@@ -300,6 +300,14 @@
         {
             isDownloading = false;
         }
+    }
+
+    private string SanitizeFileName(string input)
+    {
+        var invalidChars = Path.GetInvalidFileNameChars();
+        // Replace invalid characters with underscore, but keep spaces
+        var sanitized = string.Concat(input.Select(c => invalidChars.Contains(c) ? '_' : c));
+        return sanitized.TrimEnd();
     }
 
     private string GetButtonClass(bool isSelected, TeamColors? teamColors)

@@ -6,6 +6,7 @@
 @inject IJSRuntime JS
 @inject HttpClient Http
 @inject NavigationManager Navigation
+@inject ILogger<Admin> Logger
 
 <PageTitle>Admin - Upload Lines</PageTitle>
 
@@ -167,7 +168,7 @@
             if (response.IsSuccessStatusCode)
             {
                 var json = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"Auth response: {json}"); // Debug log
+                Logger.LogDebug("Auth response: {AuthResponse}", json);
 
                 var authInfo = JsonSerializer.Deserialize<AuthMeResponse>(json, new JsonSerializerOptions
                 {
@@ -185,17 +186,17 @@
                 }
                 else
                 {
-                    Console.WriteLine("No client principal in response");
+                    Logger.LogWarning("No client principal in auth response");
                 }
             }
             else
             {
-                Console.WriteLine($"Auth check failed: {response.StatusCode}");
+                Logger.LogWarning("Auth check failed with status code: {StatusCode}", response.StatusCode);
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error checking auth: {ex.Message}");
+            Logger.LogError(ex, "Error checking authentication status");
         }
     }
 
