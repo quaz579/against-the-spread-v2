@@ -162,3 +162,4 @@ $RECYCLE.BIN/
 ## Application specific
 test-output/
 generated-picks.xlsx
+*.deb
