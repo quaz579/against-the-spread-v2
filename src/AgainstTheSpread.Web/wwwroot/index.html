@@ -79,7 +79,7 @@
         };
 
         window.openPrintableWindow = function (htmlContent) {
-            const printWindow = window.open('', '_blank');
+            const printWindow = window.open('', '_blank', 'noopener,noreferrer');
             if (printWindow) {
                 printWindow.document.write(htmlContent);
                 printWindow.document.close();

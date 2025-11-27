@@ -2,6 +2,7 @@
 @using AgainstTheSpread.Core.Models
 @using AgainstTheSpread.Web.Services
 @using AgainstTheSpread.Web.Models
+@using AgainstTheSpread.Web.Helpers
 @using Microsoft.JSInterop
 @inject ApiService ApiService
 @inject ITeamLogoService TeamLogoService
@@ -155,8 +156,16 @@
                                 <span>📥 Generate Your Picks</span>
                             }
                         </button>
-                        <button class="btn btn-outline-primary btn-lg" @onclick="PrintPicksSheet">
-                            <span>🖨️ Print My Picks</span>
+                        <button class="btn btn-outline-primary btn-lg" @onclick="PrintPicksSheet" disabled="@(isDownloading || isPrinting)">
+                            @if (isPrinting)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                <span>Opening Print View...</span>
+                            }
+                            else
+                            {
+                                <span>🖨️ Print My Picks</span>
+                            }
                         </button>
                     </div>
                 </div>
@@ -174,6 +183,7 @@
     private List<string> selectedPicks = new();
     private bool isLoading = true;
     private bool isDownloading = false;
+    private bool isPrinting = false;
     private string? errorMessage = null;
 
     protected override async Task OnInitializedAsync()
@@ -388,11 +398,23 @@
 
     private async Task PrintPicksSheet()
     {
-        if (selectedPicks.Count != 6 || currentWeekLines == null)
+        if (selectedPicks.Count != 6 || currentWeekLines == null || isPrinting)
             return;
 
-        var picksHtml = GenerateLargeTextPicksHtml();
-        await JSRuntime.InvokeVoidAsync("openPrintableWindow", picksHtml);
+        isPrinting = true;
+        try
+        {
+            var picksHtml = GenerateLargeTextPicksHtml();
+            await JSRuntime.InvokeVoidAsync("openPrintableWindow", picksHtml);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to open print window: {ex.Message}. Please check if popups are blocked.";
+        }
+        finally
+        {
+            isPrinting = false;
+        }
     }
 
     private string GenerateLargeTextPicksHtml()
@@ -408,18 +430,7 @@
 
             if (game != null)
             {
-                string spreadDisplay;
-                if (game.Favorite.Equals(teamName, StringComparison.OrdinalIgnoreCase))
-                {
-                    // Team is the favorite, show negative spread
-                    spreadDisplay = game.Line.ToString("0.#");
-                }
-                else
-                {
-                    // Team is the underdog, show positive spread (opposite of the line)
-                    var underdogSpread = -game.Line;
-                    spreadDisplay = underdogSpread > 0 ? $"+{underdogSpread:0.#}" : underdogSpread.ToString("0.#");
-                }
+                var spreadDisplay = SpreadFormatter.FormatSpreadForTeam(game, teamName);
                 picksLines.Add($"{spreadDisplay} {teamName}");
             }
             else
@@ -428,7 +439,7 @@
             }
         }
 
-        var picksHtmlContent = string.Join("", picksLines.Select(p => $"<div>{System.Web.HttpUtility.HtmlEncode(p)}</div>"));
+        var picksHtmlContent = string.Join("", picksLines.Select(p => $"<div>{System.Net.WebUtility.HtmlEncode(p)}</div>"));
 
         return $@"<!DOCTYPE html>
 <html lang=""en"">
