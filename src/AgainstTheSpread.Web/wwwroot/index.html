@@ -77,6 +77,14 @@
             downloadLink.download = fileName;
             downloadLink.click();
         };
+
+        window.openPrintableWindow = function (htmlContent) {
+            const printWindow = window.open('', '_blank');
+            if (printWindow) {
+                printWindow.document.write(htmlContent);
+                printWindow.document.close();
+            }
+        };
     </script>
 </body>
 

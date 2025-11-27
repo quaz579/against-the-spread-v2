@@ -143,7 +143,7 @@
         {
             <div class="fixed-bottom bg-white border-top p-3 shadow">
                 <div class="container">
-                    <div class="d-grid">
+                    <div class="d-grid gap-2">
                         <button class="btn btn-success btn-lg" @onclick="GeneratePicks" disabled="@isDownloading">
                             @if (isDownloading)
                             {
@@ -154,6 +154,9 @@
                             {
                                 <span>📥 Generate Your Picks</span>
                             }
+                        </button>
+                        <button class="btn btn-outline-primary btn-lg" @onclick="PrintPicksSheet">
+                            <span>🖨️ Print My Picks</span>
                         </button>
                     </div>
                 </div>
@@ -381,5 +384,100 @@
             // Return middle brightness as fallback
             return 128;
         }
+    }
+
+    private async Task PrintPicksSheet()
+    {
+        if (selectedPicks.Count != 6 || currentWeekLines == null)
+            return;
+
+        var picksHtml = GenerateLargeTextPicksHtml();
+        await JSRuntime.InvokeVoidAsync("openPrintableWindow", picksHtml);
+    }
+
+    private string GenerateLargeTextPicksHtml()
+    {
+        var picksLines = new List<string>();
+
+        foreach (var teamName in selectedPicks)
+        {
+            // Find the game where this team is either favorite or underdog
+            var game = currentWeekLines!.Games.FirstOrDefault(g => 
+                g.Favorite.Equals(teamName, StringComparison.OrdinalIgnoreCase) || 
+                g.Underdog.Equals(teamName, StringComparison.OrdinalIgnoreCase));
+
+            if (game != null)
+            {
+                string spreadDisplay;
+                if (game.Favorite.Equals(teamName, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Team is the favorite, show negative spread
+                    spreadDisplay = game.Line.ToString("0.#");
+                }
+                else
+                {
+                    // Team is the underdog, show positive spread (opposite of the line)
+                    var underdogSpread = -game.Line;
+                    spreadDisplay = underdogSpread > 0 ? $"+{underdogSpread:0.#}" : underdogSpread.ToString("0.#");
+                }
+                picksLines.Add($"{spreadDisplay} {teamName}");
+            }
+            else
+            {
+                picksLines.Add(teamName);
+            }
+        }
+
+        var picksHtmlContent = string.Join("<br>", picksLines.Select(p => $"<div>{System.Web.HttpUtility.HtmlEncode(p)}</div>"));
+
+        return $@"<!DOCTYPE html>
+<html lang=""en"">
+<head>
+    <meta charset=""utf-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+    <title>My Picks - Week {selectedWeek}</title>
+    <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }}
+        .picks-container {{
+            text-align: center;
+            width: 100%;
+        }}
+        .picks-container div {{
+            font-size: clamp(28px, 8vw, 48px);
+            font-weight: bold;
+            line-height: 1.6;
+            padding: 8px 0;
+        }}
+        @media print {{
+            body {{
+                padding: 40px;
+            }}
+            .picks-container div {{
+                font-size: 36pt;
+                line-height: 1.8;
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <div class=""picks-container"">
+        {picksHtmlContent}
+    </div>
+</body>
+</html>";
     }
 }
