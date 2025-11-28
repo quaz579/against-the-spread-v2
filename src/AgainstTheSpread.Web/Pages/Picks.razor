@@ -2,6 +2,7 @@
 @using AgainstTheSpread.Core.Models
 @using AgainstTheSpread.Web.Services
 @using AgainstTheSpread.Web.Models
+@using AgainstTheSpread.Web.Helpers
 @using Microsoft.JSInterop
 @inject ApiService ApiService
 @inject ITeamLogoService TeamLogoService
@@ -143,7 +144,7 @@
         {
             <div class="fixed-bottom bg-white border-top p-3 shadow">
                 <div class="container">
-                    <div class="d-grid">
+                    <div class="d-grid gap-2">
                         <button class="btn btn-success btn-lg" @onclick="GeneratePicks" disabled="@isDownloading">
                             @if (isDownloading)
                             {
@@ -153,6 +154,17 @@
                             else
                             {
                                 <span>📥 Generate Your Picks</span>
+                            }
+                        </button>
+                        <button class="btn btn-outline-primary btn-lg" @onclick="PrintPicksSheet" disabled="@(isDownloading || isPrinting)">
+                            @if (isPrinting)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                <span>Opening Print View...</span>
+                            }
+                            else
+                            {
+                                <span>🖨️ Print My Picks</span>
                             }
                         </button>
                     </div>
@@ -171,6 +183,7 @@
     private List<string> selectedPicks = new();
     private bool isLoading = true;
     private bool isDownloading = false;
+    private bool isPrinting = false;
     private string? errorMessage = null;
 
     protected override async Task OnInitializedAsync()
@@ -381,5 +394,101 @@
             // Return middle brightness as fallback
             return 128;
         }
+    }
+
+    private async Task PrintPicksSheet()
+    {
+        if (selectedPicks.Count != 6 || currentWeekLines == null || isPrinting)
+            return;
+
+        isPrinting = true;
+        try
+        {
+            var picksHtml = GenerateLargeTextPicksHtml();
+            await JSRuntime.InvokeVoidAsync("openPrintableWindow", picksHtml);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to open print window: {ex.Message}. Please check if popups are blocked.";
+        }
+        finally
+        {
+            isPrinting = false;
+        }
+    }
+
+    private string GenerateLargeTextPicksHtml()
+    {
+        var picksLines = new List<string>();
+
+        foreach (var teamName in selectedPicks)
+        {
+            // Find the game where this team is either favorite or underdog
+            var game = currentWeekLines!.Games.FirstOrDefault(g => 
+                g.Favorite.Equals(teamName, StringComparison.OrdinalIgnoreCase) || 
+                g.Underdog.Equals(teamName, StringComparison.OrdinalIgnoreCase));
+
+            if (game != null)
+            {
+                var spreadDisplay = SpreadFormatter.FormatSpreadForTeam(game, teamName);
+                picksLines.Add($"{spreadDisplay} {teamName}");
+            }
+            else
+            {
+                picksLines.Add(teamName);
+            }
+        }
+
+        var picksHtmlContent = string.Join("", picksLines.Select(p => $"<div>{System.Net.WebUtility.HtmlEncode(p)}</div>"));
+
+        return $@"<!DOCTYPE html>
+<html lang=""en"">
+<head>
+    <meta charset=""utf-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+    <title>My Picks - Week {selectedWeek}</title>
+    <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }}
+        .picks-container {{
+            text-align: center;
+            width: 100%;
+        }}
+        .picks-container div {{
+            font-size: clamp(28px, 8vw, 48px);
+            font-weight: bold;
+            line-height: 1.6;
+            padding: 8px 0;
+        }}
+        @media print {{
+            body {{
+                padding: 40px;
+            }}
+            .picks-container div {{
+                font-size: 36pt;
+                line-height: 1.8;
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <div class=""picks-container"">
+        {picksHtmlContent}
+    </div>
+</body>
+</html>";
     }
 }
