@@ -260,14 +260,7 @@
 
     private void TogglePick(string team)
     {
-        if (selectedPicks.Contains(team))
-        {
-            selectedPicks.Remove(team);
-        }
-        else if (selectedPicks.Count < 6)
-        {
-            selectedPicks.Add(team);
-        }
+        PickSelectionHelper.TogglePick(team, selectedPicks, currentWeekLines?.Games);
     }
 
     private async Task GeneratePicks()
