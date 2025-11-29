@@ -17,7 +17,7 @@ const DOWNLOAD_DIR = getDefaultDownloadDir();
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const REFERENCE_DOCS = path.join(REPO_ROOT, 'reference-docs');
 
-// Test environment for uploading files
+// Test environment helper for uploading test data to Azurite
 let testEnv: TestEnvironment;
 
 test.describe('Complete User Flow', () => {

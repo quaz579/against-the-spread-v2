@@ -37,17 +37,17 @@ export async function validatePicksExcel(
       return { isValid: false, errors: ['No worksheet found in Excel file'] };
     }
     
-    // Check Row 1 is empty
+    // Check Row 1 is empty (ExcelJS uses 1-based indexing, so values[0] is always undefined)
     const row1 = worksheet.getRow(1);
     const row1Values = row1.values;
-    if (row1Values && Array.isArray(row1Values) && row1Values.some(v => v !== undefined && v !== null && v !== '')) {
+    if (row1Values && Array.isArray(row1Values) && row1Values.slice(1).some(v => v !== undefined && v !== null && v !== '')) {
       errors.push(`Row 1 should be empty but contains data`);
     }
     
     // Check Row 2 is empty
     const row2 = worksheet.getRow(2);
     const row2Values = row2.values;
-    if (row2Values && Array.isArray(row2Values) && row2Values.some(v => v !== undefined && v !== null && v !== '')) {
+    if (row2Values && Array.isArray(row2Values) && row2Values.slice(1).some(v => v !== undefined && v !== null && v !== '')) {
       errors.push(`Row 2 should be empty but contains data`);
     }
     

@@ -181,8 +181,11 @@ export class TestEnvironment {
   }
 
   /**
-   * Upload weekly lines file to Azurite storage
-   * The JSON structure must match the C# WeeklyLines model exactly
+   * Upload weekly lines file to Azurite storage.
+   * Creates both Excel (.xlsx) and JSON representations.
+   * JSON structure must match the C# WeeklyLines model (AgainstTheSpread.Core.Models.WeeklyLines)
+   * with PascalCase properties: Week (number), Year (number), UploadedAt (ISO string), Games (array of game objects).
+   * See the C# model for required/optional fields and property details.
    */
   async uploadLinesFile(filePath: string, week: number, year: number): Promise<void> {
     console.log(`Uploading lines for Week ${week}, Year ${year}...`);
@@ -203,6 +206,7 @@ export class TestEnvironment {
     const jsonBlobName = `lines/week-${week}-${year}.json`;
     const jsonBlobClient = containerClient.getBlockBlobClient(jsonBlobName);
 
+    // Using same date for all test games for simplicity
     const gameDate = new Date();
     const weeklyLinesJson = {
       Week: week,

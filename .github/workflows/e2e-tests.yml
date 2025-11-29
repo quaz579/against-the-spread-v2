@@ -62,7 +62,8 @@ jobs:
               "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated"
             },
             "Host": {
-              "CORS": "*"
+              "CORS": "*",
+              "LocalHttpPort": 7071
             }
           }
           EOF
@@ -97,7 +98,7 @@ jobs:
       - name: Start Web App
         working-directory: src/AgainstTheSpread.Web
         run: |
-          dotnet run --no-build --urls http://localhost:5158 > /tmp/web.log 2>&1 &
+          dotnet run --no-build --configuration Release --urls http://localhost:5158 > /tmp/web.log 2>&1 &
           echo "Waiting for Web App to start..."
           
           # Wait for Web App to be ready (up to 60 seconds)
