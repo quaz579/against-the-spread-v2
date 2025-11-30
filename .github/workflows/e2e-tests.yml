@@ -36,8 +36,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y azure-functions-core-tools-4
 
-      - name: Install Azurite globally
-        run: npm install -g azurite
+      - name: Install Azurite and SWA CLI globally
+        run: npm install -g azurite @azure/static-web-apps-cli
 
       - name: Restore and build .NET solution
         run: |
@@ -59,7 +59,8 @@ jobs:
             "Values": {
               "AzureWebJobsStorage": "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;",
               "AZURE_STORAGE_CONNECTION_STRING": "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;",
-              "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated"
+              "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+              "ADMIN_EMAILS": "test-admin@example.com"
             },
             "Host": {
               "CORS": "*"
@@ -94,6 +95,13 @@ jobs:
             sleep 1
           done
 
+      - name: Configure Web App for E2E (use SWA CLI port 4280)
+        working-directory: src/AgainstTheSpread.Web/wwwroot
+        run: |
+          # Swap to E2E config so Blazor app routes API calls through SWA CLI
+          cp appsettings.E2E.json appsettings.Development.json
+          echo "Configured Web App to use SWA CLI (port 4280) for API calls"
+
       - name: Start Web App
         working-directory: src/AgainstTheSpread.Web
         run: |
@@ -114,6 +122,25 @@ jobs:
             sleep 1
           done
 
+      - name: Start SWA CLI (provides mock authentication)
+        run: |
+          swa start http://localhost:5158 --api-location http://localhost:7071 --port 4280 > /tmp/swa.log 2>&1 &
+          echo "Waiting for SWA CLI to start..."
+          
+          # Wait for SWA CLI to be ready (up to 60 seconds)
+          for i in {1..60}; do
+            if curl -s -f http://localhost:4280 > /dev/null 2>&1; then
+              echo "SWA CLI is ready"
+              break
+            fi
+            if [ $i -eq 60 ]; then
+              echo "SWA CLI failed to start"
+              cat /tmp/swa.log
+              exit 1
+            fi
+            sleep 1
+          done
+
       - name: Run E2E tests
         working-directory: tests
         run: npm test
@@ -123,6 +150,7 @@ jobs:
       - name: Stop services
         if: always()
         run: |
+          pkill -f "swa start" || true
           pkill -9 func || true
           pkill -9 dotnet || true
           pkill -9 azurite || true
@@ -144,4 +172,5 @@ jobs:
             tests/test-results/
             /tmp/functions.log
             /tmp/web.log
+            /tmp/swa.log
           retention-days: 7
