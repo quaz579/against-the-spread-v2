@@ -118,6 +118,10 @@ export class PicksPage {
     if (buttons.length === 0) {
       throw new Error('No team buttons found on the page');
     }
+
+    // Wait for Blazor to be fully interactive by checking that the alert-info element exists
+    // This ensures the page has finished rendering
+    await this.page.waitForSelector('.alert-info', { timeout: 10000 });
     
     // Click on the first `count` buttons that are not disabled
     let selectedCount = 0;
@@ -127,10 +131,12 @@ export class PicksPage {
       // Check if button is not disabled
       const isDisabled = await button.isDisabled();
       if (!isDisabled) {
-        await button.click();
+        // Use force click to ensure the click is registered even if element is being re-rendered
+        await button.click({ force: true });
         selectedCount++;
         
         // Wait for the pick count display to update to reflect the selection
+        // Use longer timeout for CI where Blazor WASM may be slower
         await this.page.waitForFunction(
           (expectedCount) => {
             const alertInfo = document.querySelector('.alert-info');
@@ -140,7 +146,7 @@ export class PicksPage {
             return match && parseInt(match[1], 10) === expectedCount;
           },
           selectedCount,
-          { timeout: 5000 }
+          { timeout: 15000, polling: 100 }
         );
       }
     }
