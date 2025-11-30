@@ -77,10 +77,6 @@ jobs:
         env:
           CI: true
 
-      - name: Stop E2E environment
-        if: always()
-        run: ./stop-e2e.sh
-
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
