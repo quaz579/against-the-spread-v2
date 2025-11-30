@@ -2,7 +2,25 @@
 
 Comprehensive testing strategy and instructions for the Against The Spread application.
 
-## Test Structure
+## Overview
+
+This project uses two types of automated tests:
+
+1. **Unit Tests** - Test individual components in isolation (this document)
+2. **End-to-End Tests** - Test complete user flows with Playwright (see `tests/README.md`)
+
+**CRITICAL: All tests must pass before any task is complete:**
+```bash
+# Run unit tests (156+ tests)
+dotnet test
+
+# Run E2E tests (2+ tests)
+./start-e2e.sh
+cd tests && npm test
+./stop-e2e.sh
+```
+
+## Unit Test Structure
 
 ```
 src/AgainstTheSpread.Tests/
@@ -355,8 +373,8 @@ public async Task GetWeeks_ReturnsValidResponse()
 
 ### Testing Gaps
 
-1. Integration tests with real Azure services (Azurite setup needed)
-2. E2E tests with Playwright or Selenium
+1. ~~E2E tests with Playwright or Selenium~~ **DONE - See `tests/README.md`**
+2. Integration tests with real Azure services (Azurite setup needed)
 3. Accessibility testing (WCAG compliance)
 4. Internationalization testing
 
@@ -372,10 +390,12 @@ public async Task GetWeeks_ReturnsValidResponse()
 ### Test Review Checklist
 
 Before merging:
-- [ ] All tests pass locally
+- [ ] All unit tests pass locally (`dotnet test`)
+- [ ] All E2E tests pass locally (`cd tests && npm test`)
 - [ ] CI passes on GitHub Actions
 - [ ] Code coverage hasn't decreased
-- [ ] New features have tests
+- [ ] New features have unit tests
+- [ ] New user flows have E2E tests (if applicable)
 - [ ] Tests follow AAA pattern (Arrange, Act, Assert)
 - [ ] Tests are isolated (no shared state)
 - [ ] Tests have descriptive names
@@ -396,3 +416,45 @@ Before merging:
 - Keep test suite under 5 minutes
 - Zero flaky tests
 - Add integration tests in next iteration
+
+## End-to-End Testing (Playwright)
+
+For complete E2E testing documentation, see **[`tests/README.md`](tests/README.md)**.
+
+### Quick Reference
+
+```bash
+# Start E2E environment
+./start-e2e.sh
+
+# Run E2E tests
+cd tests && npm test
+
+# Run with visible browser
+npm run test:headed
+
+# Debug tests
+npm run test:debug
+
+# Stop E2E environment
+cd .. && ./stop-e2e.sh
+```
+
+### Key E2E Test Files
+
+| File | Purpose |
+|------|---------|
+| `tests/README.md` | Complete E2E testing guide |
+| `tests/specs/full-flow.spec.ts` | Main test scenarios |
+| `tests/pages/admin-page.ts` | Admin page object model |
+| `tests/pages/picks-page.ts` | Picks page object model |
+| `tests/helpers/` | Test utilities and validators |
+| `start-e2e.sh` | Start E2E environment |
+| `stop-e2e.sh` | Stop E2E environment |
+
+### When to Add E2E Tests
+
+- New user-facing features
+- Modified user flows or interactions
+- Changed API endpoints used by the UI
+- Updated authentication or authorization

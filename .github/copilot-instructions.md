@@ -34,6 +34,17 @@ This is a Progressive Web Application (PWA) for managing a weekly college footba
 3. Refactor and optimize
 4. Update documentation
 
+**CRITICAL: All tests must pass before any task is complete:**
+- Unit tests: `dotnet test`
+- E2E tests: `cd tests && npm test` (requires `./start-e2e.sh` running)
+- Both test suites MUST pass before committing changes
+
+**When to consider new E2E tests:**
+- Adding new user-facing features
+- Modifying existing user flows
+- Changing API endpoints used by the UI
+- Updating admin functionality
+
 **Test Structure (AAA Pattern):**
 ```csharp
 [Fact]
@@ -59,14 +70,24 @@ public void MethodName_Scenario_ExpectedBehavior()
 
 ### End-to-End Testing with Playwright
 
-**Playwright smoke tests validate the complete user flow:**
+**Playwright E2E tests validate the complete user flow including authentication:**
 - Located in `tests/` directory with TypeScript
-- Tests the full stack: Azurite → Functions → Blazor Web App
-- Automatically uploads test data and validates Excel downloads
+- Tests the full stack: Azurite → Functions → SWA CLI (mock auth) → Blazor Web App
+- Uses SWA CLI mock authentication for admin routes
+- Uploads test data via admin UI and validates Excel downloads
 - Runs on every PR via GitHub Actions
+
+**Key E2E Test Documentation:**
+- `tests/README.md` - Complete E2E testing guide
+- `tests/specs/full-flow.spec.ts` - Main test scenarios
+- `tests/pages/admin-page.ts` - Admin page interactions
+- `tests/pages/picks-page.ts` - Picks page interactions
 
 **Running Playwright tests:**
 ```bash
+# Start E2E environment (from repo root)
+./start-e2e.sh
+
 # Install dependencies (first time only)
 cd tests
 npm install
@@ -83,11 +104,16 @@ npm run test:debug
 
 # View test report
 npm run test:report
+
+# Stop E2E environment when done
+cd .. && ./stop-e2e.sh
 ```
 
-**Test requirements:**
-- Services must be running (or tests will start them automatically)
-- Ports 7071 (Functions), 5158 (Web), 10000 (Azurite) must be available
+**E2E Test Requirements:**
+- Start services with `./start-e2e.sh` (NOT `./start-local.sh`)
+- `start-e2e.sh` configures Blazor app to route API calls through SWA CLI (port 4280)
+- SWA CLI provides mock authentication at `/.auth/login/google`
+- Ports: 10000 (Azurite), 7071 (Functions), 5158 (Web), 4280 (SWA CLI)
 - Tests validate Excel format matches `reference-docs/Weekly Picks Example.xlsx`
 - See `tests/README.md` for detailed documentation
 
@@ -98,21 +124,30 @@ npm run test:report
 # Compile and check for errors
 dotnet build
 
-# Run all unit tests
+# Run all unit tests (156+ tests)
 dotnet test
 
-# Run end-to-end tests (validates full user flow)
+# Start E2E environment and run Playwright tests
+./start-e2e.sh
 cd tests && npm test
+./stop-e2e.sh  # When done
 
-# For local testing with Azure Functions
-cd src/AgainstTheSpread.Functions && func start
+# For regular local development (no SWA CLI needed)
+./start-local.sh
 ```
+
+**IMPORTANT: A coding task is NOT complete until:**
+1. ✅ Code compiles without errors (`dotnet build`)
+2. ✅ All unit tests pass (`dotnet test`)
+3. ✅ All E2E tests pass (`cd tests && npm test`)
+4. ✅ Documentation is updated if needed
 
 **Do NOT commit code that:**
 - Doesn't compile
-- Has failing tests
+- Has failing unit tests
+- Has failing E2E tests
 - Contains hardcoded credentials or secrets
-- Lacks necessary tests
+- Lacks necessary tests for new features
 
 ### Project Structure
 
@@ -262,14 +297,19 @@ fix(web): correct game selection validation
 ### Task Acceptance Criteria
 
 **When completing a task:**
-- All tests pass (existing + new)
+- All unit tests pass (`dotnet test`) - 156+ tests
+- All E2E tests pass (`cd tests && npm test`) - 2+ tests
 - Code compiles without warnings
 - Documentation is updated
 - Follows established patterns
 - Includes error handling
 - Mobile-friendly (for UI changes)
 - Security considerations addressed
-- Playwright smoke tests pass (for user-facing changes)
+
+**For significant changes, consider:**
+- Adding new E2E test scenarios in `tests/specs/`
+- Updating Page Object Models in `tests/pages/`
+- Updating `tests/README.md` if test setup changes
 
 ### MVP Scope Focus
 
@@ -291,10 +331,20 @@ fix(web): correct game selection validation
 **Reference files:**
 - `reference-docs/Week 1 Lines.xlsx` - Sample input
 - `reference-docs/Weekly Picks Example.xlsx` - Expected output format
+
+**Documentation:**
 - `.agents.md` - Comprehensive agent guide
 - `implementation-plan.md` - Detailed implementation steps
-- `TESTING.md` - Complete testing guide
-- `tests/README.md` - Playwright E2E testing guide
+- `TESTING.md` - Complete testing guide (unit tests)
+- `CONTRIBUTING.md` - Contribution guidelines
+
+**E2E Testing (Playwright):**
+- `tests/README.md` - **Complete E2E testing guide** (START HERE)
+- `tests/specs/full-flow.spec.ts` - Main E2E test scenarios
+- `tests/pages/admin-page.ts` - Admin page object model
+- `tests/pages/picks-page.ts` - Picks page object model
+- `tests/helpers/` - Test utilities and validators
+- `start-e2e.sh` / `stop-e2e.sh` - E2E environment scripts
 
 ### Common Pitfalls to Avoid
 

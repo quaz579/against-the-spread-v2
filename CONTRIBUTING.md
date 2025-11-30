@@ -28,9 +28,11 @@ This project is designed to be implemented primarily by AI agents with human ove
 
 3. **Validate Changes**
    - Run `dotnet build` - ensure compilation succeeds
-   - Run `dotnet test` - ensure all tests pass
+   - Run `dotnet test` - ensure all unit tests pass (156+ tests)
+   - Run E2E tests - `./start-e2e.sh && cd tests && npm test` (2+ tests)
    - Test locally with Azurite and browsers
    - Verify changes against acceptance criteria
+   - **A task is NOT complete until ALL tests pass**
 
 4. **Commit Changes**
    - Use clear, descriptive commit messages
@@ -56,6 +58,10 @@ This project is designed to be implemented primarily by AI agents with human ove
 ## 🧪 Testing Requirements
 
 All contributions MUST include tests:
+
+**CRITICAL: All tests must pass before any PR is merged:**
+- Unit tests: `dotnet test` (156+ tests)
+- E2E tests: `cd tests && npm test` (2+ tests, requires `./start-e2e.sh`)
 
 ### Unit Tests
 - Test all business logic
@@ -90,6 +96,13 @@ public void ParseLinesFromExcel_WithValidFile_ReturnsWeeklyLines()
 - Use bUnit for component testing
 - Test user interactions
 - Verify rendered output
+
+### End-to-End Tests (Playwright)
+- Validate complete user flows
+- Test admin authentication and uploads
+- Verify Excel download format
+- See `tests/README.md` for complete guide
+- Add new tests for significant UI/API changes
 
 ## 🏗️ Code Structure
 
@@ -184,7 +197,8 @@ Fixes #45
 Reviewers should verify:
 
 - [ ] Tests written before implementation (TDD)
-- [ ] All tests pass (`dotnet test`)
+- [ ] All unit tests pass (`dotnet test` - 156+ tests)
+- [ ] All E2E tests pass (`cd tests && npm test` - 2+ tests)
 - [ ] Code compiles without warnings
 - [ ] Documentation updated
 - [ ] Follows established patterns
@@ -193,6 +207,7 @@ Reviewers should verify:
 - [ ] Security considerations addressed
 - [ ] Performance acceptable
 - [ ] Mobile-friendly (for UI changes)
+- [ ] New E2E tests added for significant UI changes
 
 ## 🚫 What NOT to Do
 
@@ -229,7 +244,9 @@ Before contributing:
 1. [`.agents.md`](.agents.md) - Agent development guide
 2. [`implementation-plan.md`](implementation-plan.md) - Implementation roadmap
 3. [`README.md`](README.md) - Project overview
-4. Game rules in [`reference-docs/rules.md`](reference-docs/rules.md)
+4. [`TESTING.md`](TESTING.md) - Unit testing guide
+5. [`tests/README.md`](tests/README.md) - **E2E testing guide (Playwright)**
+6. Game rules in [`reference-docs/rules.md`](reference-docs/rules.md)
 
 ## 🐛 Reporting Issues
 
