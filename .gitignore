@@ -165,3 +165,4 @@ $RECYCLE.BIN/
 test-output/
 generated-picks.xlsx
 *.deb
+build/
