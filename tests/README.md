@@ -5,15 +5,20 @@ This directory contains end-to-end (E2E) tests for the Against The Spread applic
 ## Overview
 
 The E2E tests validate the complete user flow:
-1. **Data Upload**: Uploads Week 11 and Week 12 test data to Azurite blob storage
-2. **User Flow**: Simulates a user making picks for both weeks
-3. **Validation**: Downloads and validates the generated Excel files
+1. **Admin Login**: Uses SWA CLI mock authentication to login as admin
+2. **Data Upload**: Uploads Week 11 and Week 12 lines via the admin UI
+3. **User Flow**: Simulates a user making picks for both weeks
+4. **Validation**: Downloads and validates the generated Excel files
 
-**Key architectural decision**: Services (Azurite, Azure Functions, Web App) must be started manually before running tests using the existing `start-local.sh` script. This approach:
+**Key architectural decision**: Services must be started before running tests using `./start-e2e.sh`. This approach:
 - Makes debugging easier
 - Avoids port conflicts and timing issues
 - Allows running tests multiple times without restarting services
 - Keeps Playwright tests focused on browser automation
+
+**Note**: E2E tests require `start-e2e.sh` (not `start-local.sh`) because they need:
+- SWA CLI running for mock authentication on admin routes
+- The Blazor app configured to route API calls through SWA CLI (port 4280)
 
 ## Prerequisites
 
@@ -22,6 +27,7 @@ The E2E tests validate the complete user flow:
 - **.NET 8 SDK**
 - **Azure Functions Core Tools** (v4)
 - **Azurite** (install globally: `npm install -g azurite`)
+- **SWA CLI** (installed automatically via npx)
 
 ## Installation
 
@@ -38,17 +44,19 @@ The E2E tests validate the complete user flow:
 
 ## Starting Services
 
-Before running tests, start all services using the provided script from the repository root:
+Before running tests, start all E2E services from the repository root:
 
 ```bash
-# From repository root
-./start-local.sh
+./start-e2e.sh
 ```
 
-Wait for the services to initialize (about 10-15 seconds). Verify they're running:
-- **Azurite**: http://localhost:10000
-- **Functions API**: http://localhost:7071/api/weeks?year=2025
-- **Web App**: http://localhost:5158
+This starts:
+- **Azurite** (port 10000) - Storage emulator
+- **Azure Functions** (port 7071) - Backend API  
+- **Blazor Web App** (port 5158) - Frontend
+- **SWA CLI** (port 4280) - Authentication proxy with mock auth
+
+Wait for services to initialize (~15 seconds). The SWA CLI proxy at port 4280 is the main entry point.
 
 ## Running Tests
 
@@ -80,11 +88,10 @@ npm run test:report
 
 ## Stopping Services
 
-After testing, stop all services:
+After testing, stop all E2E services:
 
 ```bash
-# From repository root
-./stop-local.sh
+./stop-e2e.sh
 ```
 
 ## Project Structure
@@ -92,11 +99,12 @@ After testing, stop all services:
 ```
 tests/
 ├── helpers/
-│   ├── test-environment.ts    # Test environment utilities (file uploads)
+│   ├── test-environment.ts    # Test environment configuration
 │   ├── excel-validator.ts     # Validates Excel file structure
 │   ├── download-helper.ts     # Handles file downloads
 │   └── index.ts               # Exports all helpers
 ├── pages/
+│   ├── admin-page.ts          # Page Object Model for admin page
 │   └── picks-page.ts          # Page Object Model for picks page
 ├── specs/
 │   └── full-flow.spec.ts      # Complete user flow tests (Week 11 & 12)
@@ -110,24 +118,32 @@ tests/
 
 Each test follows this flow:
 
-1. **Upload lines** to Azurite blob storage using TestEnvironment helper
-2. **Navigate** to the picks page
-3. **Enter** user name
-4. **Select** year (2025) and week (11 or 12)
-5. **Click** Continue to load games
+1. **Login** to admin page using SWA CLI mock authentication
+2. **Upload lines** Excel file via the admin UI
+3. **Navigate** to the picks page
+4. **Enter** user name
+5. **Select** year (2025) and week (11 or 12)
 6. **Select** 6 games by clicking team buttons
 7. **Download** the Excel file
-8. **Validate** Excel structure:
-   - Row 1: Empty
-   - Row 2: Empty
-   - Row 3: Headers (Name, Pick 1-6)
-   - Row 4: Data (user name and 6 picks)
+8. **Validate** Excel structure matches expected format
+
+## How Authentication Works
+
+The tests use SWA CLI's mock authentication feature:
+
+1. **SWA CLI** proxies requests and provides mock auth at `/.auth/login/google`
+2. **Mock auth page** allows entering any email (tests use `test-admin@example.com`)
+3. **SWA CLI** creates an auth cookie and injects `X-MS-CLIENT-PRINCIPAL` header
+4. **Azure Functions** read the header to authenticate/authorize requests
+5. **CookieHandler** in Blazor ensures cookies are sent with API requests
+
+The admin email `test-admin@example.com` is configured in `local.settings.json` as an allowed admin.
 
 ## Configuration
 
-The tests are configured in `playwright.config.ts`:
+Tests are configured in `playwright.config.ts`:
 
-- **Base URL**: `http://localhost:5158`
+- **Base URL**: `http://localhost:4280` (SWA CLI proxy)
 - **Browser**: Chromium
 - **Retries**: 2 on CI, 0 locally
 - **Workers**: 1 (sequential execution)
@@ -138,83 +154,69 @@ The tests are configured in `playwright.config.ts`:
 
 ## CI/CD Integration
 
-The tests run automatically on every pull request via GitHub Actions:
+Tests run automatically on pull requests via GitHub Actions:
 
-- Workflow file: `.github/workflows/e2e-tests.yml`
-- Installs all dependencies (Azure Functions Core Tools, Azurite, Playwright)
+- Workflow: `.github/workflows/e2e-tests.yml`
+- Installs dependencies (Azure Functions Core Tools, Azurite, Playwright)
 - Starts services using `start-local.sh`
-- Runs tests in CI environment
-- Uploads test results and traces as artifacts
+- Runs tests with `npm test`
+- Uploads test results as artifacts on failure
 
 ## Troubleshooting
 
 ### Services not running
 
-Ensure you've started services before running tests:
+Ensure services are started before running tests:
 ```bash
 ./start-local.sh
 ```
 
-Wait for all services to be ready before running tests.
+Check all 4 ports are listening:
+```bash
+lsof -i :10000 -i :7071 -i :5158 -i :4280 | grep LISTEN
+```
 
 ### Port conflicts
 
-If you get port conflicts, check if services are already running:
+Stop any conflicting processes:
 ```bash
-lsof -i :7071  # Azure Functions
-lsof -i :5158  # Web App
-lsof -i :10000 # Azurite
+./stop-local.sh
 ```
 
-Stop any conflicting processes or use `./stop-local.sh`.
+### Authentication fails (403 errors)
 
-### Tests timeout waiting for elements
+- Verify SWA CLI is running on port 4280
+- Check that `test-admin@example.com` is in `ADMIN_EMAILS` in `local.settings.json`
+- Ensure the Blazor app is configured to use port 4280 (`appsettings.Development.json`)
 
-- Verify services are running and responding
+### Tests timeout
+
+- Run in headed mode to see what's happening: `npm run test:headed`
 - Check browser console for JavaScript errors
-- Run tests in headed mode to see what's happening: `npm run test:headed`
+- Verify all services are responding
 
 ### Excel validation fails
 
-- Check that the downloaded file exists in `/tmp/playwright-downloads`
-- Verify the Excel structure matches `reference-docs/Weekly Picks Example.xlsx`
-- Look at the test output for specific validation errors
-
-### Week not appearing in dropdown
-
-- Ensure the lines file was uploaded to Azurite
-- Check Functions logs for upload errors
-- Verify the year matches (default is current year)
-
-## Development
-
-### Adding New Tests
-
-1. Create a new file in `specs/` directory
-2. Import test utilities from `@playwright/test`
-3. Use `test.describe` and `test` to structure your tests
-4. Follow the existing test patterns in `full-flow.spec.ts`
-
-### Creating Page Objects
-
-1. Create a new file in `pages/` directory
-2. Define locators for page elements
-3. Add methods for common interactions
-4. See `picks-page.ts` for an example
-
-### Custom Validation
-
-Edit `helpers/excel-validator.ts` to add custom Excel validation logic.
+- Check downloaded file exists in `/tmp/playwright-downloads`
+- Verify Excel structure matches `reference-docs/Weekly Picks Example.xlsx`
+- Review test output for specific validation errors
 
 ## Reference Files
 
-Test data files are in `reference-docs/`:
+Test data in `reference-docs/`:
 - `Week 11 Lines.xlsx` - Week 11 game lines
-- `Week 12 Lines.xlsx` - Week 12 game lines
+- `Week 12 Lines.xlsx` - Week 12 game lines  
 - `Weekly Picks Example.xlsx` - Expected output format
+
+## Adding New Tests
+
+1. Create test file in `specs/` directory
+2. Use existing page objects from `pages/`
+3. Follow patterns in `full-flow.spec.ts`
+4. Run locally before pushing
 
 ## Resources
 
 - [Playwright Documentation](https://playwright.dev/)
-- [Playwright TypeScript Guide](https://playwright.dev/docs/test-typescript)
-- [Against The Spread Repository](https://github.com/quaz579/against-the-spread)
+- [SWA CLI Documentation](https://azure.github.io/static-web-apps-cli/)
+- [Project Repository](https://github.com/quaz579/against-the-spread)
