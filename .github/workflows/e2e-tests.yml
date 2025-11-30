@@ -2,9 +2,9 @@ name: E2E Tests
 
 on:
   pull_request:
-    branches: [ main, dev ]
+    branches: [main, dev]
   push:
-    branches: [ main ]
+    branches: [main]
 
 permissions:
   contents: read
@@ -14,7 +14,7 @@ jobs:
     name: Run E2E Tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -22,12 +22,12 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: "8.0.x"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Install Azure Functions Core Tools
         run: |
@@ -80,7 +80,7 @@ jobs:
         run: |
           func start --port 7071 > /tmp/functions.log 2>&1 &
           echo "Waiting for Azure Functions to start..."
-          
+
           # Wait for Functions to be ready (up to 60 seconds)
           for i in {1..60}; do
             if curl -s -f http://localhost:7071/api/weeks?year=2025 > /dev/null 2>&1; then
@@ -107,7 +107,7 @@ jobs:
         run: |
           dotnet run --no-build --configuration Release --urls http://localhost:5158 > /tmp/web.log 2>&1 &
           echo "Waiting for Web App to start..."
-          
+
           # Wait for Web App to be ready (up to 60 seconds)
           for i in {1..60}; do
             if curl -s -f http://localhost:5158 > /dev/null 2>&1; then
@@ -126,7 +126,7 @@ jobs:
         run: |
           swa start http://localhost:5158 --api-location http://localhost:7071 --port 4280 > /tmp/swa.log 2>&1 &
           echo "Waiting for SWA CLI to start..."
-          
+
           # Wait for SWA CLI to be ready (up to 60 seconds)
           for i in {1..60}; do
             if curl -s -f http://localhost:4280 > /dev/null 2>&1; then
