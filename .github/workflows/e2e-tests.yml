@@ -42,9 +42,9 @@ jobs:
       - name: Restore and build .NET solution
         run: |
           dotnet restore
-          dotnet build --no-restore --configuration Release
+          dotnet build --no-restore
 
-      - name: Install test dependencies
+      - name: Install Playwright test dependencies
         working-directory: tests
         run: |
           npm install
@@ -68,78 +68,8 @@ jobs:
           }
           EOF
 
-      - name: Start Azurite
-        run: |
-          mkdir -p /tmp/azurite
-          azurite --silent --location /tmp/azurite --blobPort 10000 &
-          echo "Waiting for Azurite to start..."
-          sleep 5
-
-      - name: Start Azure Functions
-        working-directory: src/AgainstTheSpread.Functions
-        run: |
-          func start --port 7071 > /tmp/functions.log 2>&1 &
-          echo "Waiting for Azure Functions to start..."
-
-          # Wait for Functions to be ready (up to 60 seconds)
-          for i in {1..60}; do
-            if curl -s -f http://localhost:7071/api/weeks?year=2025 > /dev/null 2>&1; then
-              echo "Azure Functions is ready"
-              break
-            fi
-            if [ $i -eq 60 ]; then
-              echo "Azure Functions failed to start"
-              cat /tmp/functions.log
-              exit 1
-            fi
-            sleep 1
-          done
-
-      - name: Configure Web App for E2E (use SWA CLI port 4280)
-        working-directory: src/AgainstTheSpread.Web/wwwroot
-        run: |
-          # Swap to E2E config so Blazor app routes API calls through SWA CLI
-          cp appsettings.E2E.json appsettings.Development.json
-          echo "Configured Web App to use SWA CLI (port 4280) for API calls"
-
-      - name: Start Web App
-        working-directory: src/AgainstTheSpread.Web
-        run: |
-          dotnet run --no-build --configuration Release --urls http://localhost:5158 > /tmp/web.log 2>&1 &
-          echo "Waiting for Web App to start..."
-
-          # Wait for Web App to be ready (up to 60 seconds)
-          for i in {1..60}; do
-            if curl -s -f http://localhost:5158 > /dev/null 2>&1; then
-              echo "Web App is ready"
-              break
-            fi
-            if [ $i -eq 60 ]; then
-              echo "Web App failed to start"
-              cat /tmp/web.log
-              exit 1
-            fi
-            sleep 1
-          done
-
-      - name: Start SWA CLI (provides mock authentication)
-        run: |
-          swa start http://localhost:5158 --api-location http://localhost:7071 --port 4280 > /tmp/swa.log 2>&1 &
-          echo "Waiting for SWA CLI to start..."
-
-          # Wait for SWA CLI to be ready (up to 60 seconds)
-          for i in {1..60}; do
-            if curl -s -f http://localhost:4280 > /dev/null 2>&1; then
-              echo "SWA CLI is ready"
-              break
-            fi
-            if [ $i -eq 60 ]; then
-              echo "SWA CLI failed to start"
-              cat /tmp/swa.log
-              exit 1
-            fi
-            sleep 1
-          done
+      - name: Start E2E environment
+        run: ./start-e2e.sh
 
       - name: Run E2E tests
         working-directory: tests
@@ -147,13 +77,9 @@ jobs:
         env:
           CI: true
 
-      - name: Stop services
+      - name: Stop E2E environment
         if: always()
-        run: |
-          pkill -f "swa start" || true
-          pkill -9 func || true
-          pkill -9 dotnet || true
-          pkill -9 azurite || true
+        run: ./stop-e2e.sh
 
       - name: Upload test results
         if: always()
@@ -170,7 +96,7 @@ jobs:
           name: test-artifacts
           path: |
             tests/test-results/
-            /tmp/functions.log
-            /tmp/web.log
-            /tmp/swa.log
+            /tmp/func-e2e.log
+            /tmp/web-e2e.log
+            /tmp/swa-e2e.log
           retention-days: 7
