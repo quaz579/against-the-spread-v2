@@ -125,7 +125,8 @@ export class PicksPage {
 
   /**
    * Select games by clicking on team buttons.
-   * Verifies each click actually registered before moving to the next button.
+   * Each game has two buttons (favorite and underdog) - we click one per game.
+   * Buttons are arranged in pairs, so we click every other button to select one team per game.
    * @param count - Number of games to select (default: 6)
    */
   async selectGames(count: number = 6): Promise<void> {
@@ -136,17 +137,35 @@ export class PicksPage {
       throw new Error('No team buttons found on the page');
     }
 
-    // Click on buttons until we have selected `count` games
-    let selectedCount = 0;
-    let buttonIndex = 0;
+    console.log(`Found ${buttons.length} team buttons, need to select ${count} games`);
 
-    while (selectedCount < count && buttonIndex < buttons.length) {
+    // Click on buttons until we have selected `count` games
+    // Each game has 2 buttons (favorite and underdog), so we need to skip to every other pair
+    // Button layout: [game1-fav, game1-dog, game2-fav, game2-dog, ...]
+    // We click index 0, 2, 4, 6... (first team of each game)
+    let selectedCount = 0;
+    let gameIndex = 0; // Which game we're on (0, 1, 2, ...)
+
+    while (selectedCount < count && (gameIndex * 2) < buttons.length) {
+      // Click the first button of each game (favorite)
+      const buttonIndex = gameIndex * 2;
       const button = buttons[buttonIndex];
 
       // Check if button is not disabled
       const isDisabled = await button.isDisabled();
       if (isDisabled) {
-        buttonIndex++;
+        console.log(`Game ${gameIndex} favorite button is disabled, trying underdog`);
+        // Try the underdog button instead
+        const underdogIndex = buttonIndex + 1;
+        if (underdogIndex < buttons.length) {
+          const underdogButton = buttons[underdogIndex];
+          const underdogDisabled = await underdogButton.isDisabled();
+          if (!underdogDisabled) {
+            await this.clickButtonAndVerify(underdogButton, underdogIndex);
+            selectedCount++;
+          }
+        }
+        gameIndex++;
         continue;
       }
 
@@ -180,23 +199,58 @@ export class PicksPage {
           clickSucceeded = true;
         } catch {
           // Click didn't register, will retry
-          console.log(`Click attempt ${attempt + 1} on button ${buttonIndex} didn't register, retrying...`);
+          console.log(`Click attempt ${attempt + 1} on game ${gameIndex} (button ${buttonIndex}) didn't register, retrying...`);
         }
       }
 
       if (clickSucceeded) {
         selectedCount++;
-        buttonIndex++;
+        console.log(`Selected game ${gameIndex}, total picks: ${selectedCount}`);
       } else {
-        // Skip this button if it won't respond after retries (might be a rendering issue)
-        console.log(`Button ${buttonIndex} unresponsive after 3 attempts, skipping`);
-        buttonIndex++;
+        // Skip this game if button won't respond after retries
+        console.log(`Game ${gameIndex} unresponsive after 3 attempts, skipping to next game`);
       }
+
+      gameIndex++;
     }
 
     if (selectedCount < count) {
-      throw new Error(`Could only select ${selectedCount} games, needed ${count}`);
+      throw new Error(`Could only select ${selectedCount} games, needed ${count}. Tried ${gameIndex} games out of ${Math.floor(buttons.length / 2)} available.`);
     }
+  }
+
+  /**
+   * Helper to click a button and verify the selection registered
+   */
+  private async clickButtonAndVerify(button: Locator, buttonIndex: number): Promise<boolean> {
+    const currentCount = await this.getSelectedPickCount();
+    const expectedCount = currentCount + 1;
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) {
+        await this.page.waitForTimeout(500);
+      }
+
+      await button.click();
+
+      try {
+        await this.page.waitForFunction(
+          (expected) => {
+            const alertInfo = document.querySelector('.alert-info');
+            if (!alertInfo) return false;
+            const text = alertInfo.textContent || '';
+            const match = text.match(/Selected:\s*(\d+)\s*\/\s*6/);
+            return match && parseInt(match[1], 10) === expected;
+          },
+          expectedCount,
+          { timeout: 3000 }
+        );
+        return true;
+      } catch {
+        console.log(`Click attempt ${attempt + 1} on button ${buttonIndex} didn't register, retrying...`);
+      }
+    }
+    return false;
   }
 
   /**
