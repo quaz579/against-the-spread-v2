@@ -53,7 +53,8 @@ public class UploadBowlLinesFunction
                 return badResponse;
             }
 
-            // Read the file from request body (expecting raw file upload)
+            // Read the file from request body
+            // Note: When receiving multipart form data, the body stream contains the file content
             using var stream = new MemoryStream();
             await req.Body.CopyToAsync(stream);
             stream.Position = 0;

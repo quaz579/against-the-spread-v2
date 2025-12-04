@@ -141,8 +141,9 @@ public class ApiService
             var response = await _httpClient.GetFromJsonAsync<BowlLinesExistsResponse>($"api/bowl-lines/exists?year={year}");
             return response?.Exists ?? false;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex, "Failed to check bowl lines existence for year {Year}", year);
             return false;
         }
     }
@@ -163,8 +164,9 @@ public class ApiService
 
             return null;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to submit bowl picks for {Name}", bowlPicks.Name);
             return null;
         }
     }
@@ -190,8 +192,9 @@ public class ApiService
 
             return null;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to upload bowl lines for year {Year}", year);
             return null;
         }
     }

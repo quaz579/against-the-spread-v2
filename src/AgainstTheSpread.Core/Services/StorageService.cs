@@ -310,8 +310,9 @@ public class StorageService : IStorageService
 
             return await jsonBlobClient.ExistsAsync(cancellationToken);
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex, "Failed to check bowl lines existence for year {Year}", year);
             return false;
         }
     }
