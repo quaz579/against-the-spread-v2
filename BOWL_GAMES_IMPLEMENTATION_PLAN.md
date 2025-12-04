@@ -62,12 +62,12 @@ Bowl games require a completely different pick mechanism compared to the regular
 ## Phase 1: Core Models
 
 ### Checklist
-- [ ] Create `BowlGame.cs` model
-- [ ] Create `BowlPick.cs` model (single game pick with confidence)
-- [ ] Create `BowlUserPicks.cs` model (all picks for a user)
-- [ ] Create `BowlLines.cs` model (all bowl game lines)
-- [ ] Add unit tests for all models
-- [ ] Verify build passes
+- [x] Create `BowlGame.cs` model
+- [x] Create `BowlPick.cs` model (single game pick with confidence)
+- [x] Create `BowlUserPicks.cs` model (all picks for a user)
+- [x] Create `BowlLines.cs` model (all bowl game lines)
+- [x] Add unit tests for all models
+- [x] Verify build passes
 
 ### 1.1 BowlGame Model
 
@@ -342,13 +342,13 @@ dotnet test --filter "Category=BowlModels"
 ## Phase 2: Excel Services
 
 ### Checklist
-- [ ] Create `IBowlExcelService.cs` interface
-- [ ] Create `BowlExcelService.cs` implementation
-- [ ] Implement `ParseBowlLinesAsync` method
-- [ ] Implement `GenerateBowlPicksExcelAsync` method
-- [ ] Add unit tests for bowl Excel parsing
-- [ ] Add unit tests for bowl Excel generation
-- [ ] Verify build passes
+- [x] Create `IBowlExcelService.cs` interface
+- [x] Create `BowlExcelService.cs` implementation
+- [x] Implement `ParseBowlLinesAsync` method
+- [x] Implement `GenerateBowlPicksExcelAsync` method
+- [x] Add unit tests for bowl Excel parsing
+- [x] Add unit tests for bowl Excel generation
+- [x] Verify build passes
 
 ### 2.1 Interface
 
@@ -584,12 +584,12 @@ dotnet test --filter "Category=BowlExcel"
 ## Phase 3: API Functions
 
 ### Checklist
-- [ ] Create `BowlLinesFunction.cs` for getting bowl lines
-- [ ] Create `BowlPicksFunction.cs` for submitting bowl picks
-- [ ] Create `UploadBowlLinesFunction.cs` for admin upload
-- [ ] Register bowl services in DI container (Program.cs)
-- [ ] Add unit tests for all functions
-- [ ] Verify build passes
+- [x] Create `BowlLinesFunction.cs` for getting bowl lines
+- [x] Create `BowlPicksFunction.cs` for submitting bowl picks
+- [x] Create `UploadBowlLinesFunction.cs` for admin upload
+- [x] Register bowl services in DI container (Program.cs)
+- [x] Add unit tests for all functions
+- [x] Verify build passes
 
 ### 3.1 Bowl Lines Function
 
@@ -793,13 +793,13 @@ dotnet test --filter "Category=BowlFunctions"
 ## Phase 4: Web UI
 
 ### Checklist
-- [ ] Create `BowlPicks.razor` page component
-- [ ] Add bowl-specific CSS styles
-- [ ] Add confidence points validation UI
-- [ ] Add bowl game card components
-- [ ] Add navigation link to bowl picks
-- [ ] Update API service for bowl endpoints
-- [ ] Verify build passes
+- [x] Create `BowlPicks.razor` page component
+- [x] Add bowl-specific CSS styles
+- [x] Add confidence points validation UI
+- [x] Add bowl game card components
+- [x] Add navigation link to bowl picks
+- [x] Update API service for bowl endpoints
+- [x] Verify build passes
 
 ### 4.1 Bowl Picks Page
 
