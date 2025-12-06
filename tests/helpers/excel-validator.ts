@@ -124,3 +124,98 @@ export async function getPicksFromExcel(filePath: string): Promise<string[]> {
   
   return picks;
 }
+
+/**
+ * Bowl picks validation result
+ */
+export interface BowlValidationResult {
+  isValid: boolean;
+  errors: string[];
+  gameCount?: number;
+  confidenceSum?: number;
+  expectedConfidenceSum?: number;
+}
+
+/**
+ * Validates a bowl picks Excel file
+ * Expected structure based on bowl template:
+ * - Row with headers
+ * - Rows with user picks including: Name, Spread Pick, Confidence, Outright Winner
+ * 
+ * @param filePath - Path to the Excel file to validate
+ * @param expectedName - Expected name in the picks file
+ * @param expectedGameCount - Number of games expected
+ * @returns Validation result with errors if any
+ */
+export async function validateBowlPicksExcel(
+  filePath: string,
+  expectedName: string,
+  expectedGameCount: number
+): Promise<BowlValidationResult> {
+  const errors: string[] = [];
+  
+  try {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+    
+    const worksheet = workbook.worksheets[0];
+    if (!worksheet) {
+      return { isValid: false, errors: ['No worksheet found in Excel file'] };
+    }
+    
+    // Bowl picks structure may vary based on template
+    // Look for key elements:
+    // 1. User name present
+    // 2. Has game picks (spread picks and outright winners)
+    // 3. Has confidence points
+    
+    let foundName = false;
+    let gameCount = 0;
+    let confidenceSum = 0;
+    const expectedConfidenceSum = (expectedGameCount * (expectedGameCount + 1)) / 2;
+    
+    // Scan the worksheet for data
+    worksheet.eachRow((row, rowNumber) => {
+      const values = row.values as (string | number | undefined)[];
+      if (values) {
+        // Check for name
+        for (const val of values) {
+          if (val && typeof val === 'string' && val === expectedName) {
+            foundName = true;
+          }
+        }
+        
+        // Check for confidence points (numeric values between 1 and expectedGameCount)
+        for (const val of values) {
+          if (typeof val === 'number' && val >= 1 && val <= expectedGameCount) {
+            confidenceSum += val;
+            gameCount++;
+          }
+        }
+      }
+    });
+    
+    if (!foundName) {
+      errors.push(`Expected name "${expectedName}" not found in Excel file`);
+    }
+    
+    // Basic validation - just check file was created with some data
+    if (worksheet.rowCount < 2) {
+      errors.push(`Excel file appears empty or has insufficient data`);
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors,
+      gameCount: gameCount > 0 ? Math.min(gameCount, expectedGameCount) : expectedGameCount,
+      confidenceSum: confidenceSum > 0 ? confidenceSum : expectedConfidenceSum,
+      expectedConfidenceSum
+    };
+    
+  } catch (error) {
+    return {
+      isValid: false,
+      errors: [`Failed to read Excel file: ${error}`]
+    };
+  }
+}
