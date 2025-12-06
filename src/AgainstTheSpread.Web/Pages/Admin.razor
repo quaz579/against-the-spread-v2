@@ -164,7 +164,7 @@
 
                         <div class="mb-3">
                             <label for="bowlYearInput" class="form-label">Bowl Season Year</label>
-                            <input type="number" class="form-control" id="bowlYearInput" @bind="bowlYear" min="2024" max="2030"
+                            <input type="number" class="form-control" id="bowlYearInput" @bind="bowlYear" min="2024" max="@(DateTime.Now.Year + 5)"
                                 placeholder="Enter year" />
                         </div>
 

@@ -247,15 +247,18 @@ export class AdminPage {
         // Click bowl upload button
         await this.bowlUploadButton.click();
 
-        // Wait for upload to complete (spinner disappears)
-        await this.page.waitForTimeout(5000); // Give time for upload
-
-        // Check for success message containing bowl-related text
+        // Wait for upload to complete - wait for either success or error message
         const successLocator = this.page.locator('.alert-success');
-        const hasSuccess = await successLocator.isVisible().catch(() => false);
-        
-        // Check for error message
         const errorLocator = this.page.locator('.alert-danger');
+        
+        // Wait for either success or error to appear
+        await Promise.race([
+            successLocator.waitFor({ state: 'visible', timeout: 30000 }).catch(() => {}),
+            errorLocator.waitFor({ state: 'visible', timeout: 30000 }).catch(() => {})
+        ]);
+
+        // Check for success or error
+        const hasSuccess = await successLocator.isVisible().catch(() => false);
         const hasError = await errorLocator.isVisible().catch(() => false);
 
         if (hasError) {
