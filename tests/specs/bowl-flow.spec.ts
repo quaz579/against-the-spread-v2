@@ -38,7 +38,7 @@ test.describe('Bowl Picks Complete Flow', () => {
   test('Complete Bowl Flow: Admin uploads lines, user makes picks, downloads and validates Excel', async ({ page }) => {
     const adminPage = new AdminPage(page);
     const bowlPicksPage = new BowlPicksPage(page);
-    const bowlLinesFile = path.join(REFERENCE_DOCS, 'Bowl Lines Test.xlsx');
+    const bowlLinesFile = path.join(REFERENCE_DOCS, 'Bowl-Lines-2.xlsx');
 
     // === STEP 1: Verify test data exists ===
     await test.step('Verify test data exists', async () => {

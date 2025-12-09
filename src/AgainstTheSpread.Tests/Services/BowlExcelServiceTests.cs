@@ -243,4 +243,47 @@ public class BowlExcelServiceTests
         var sumFormula = worksheet.Cells[8, 3].Formula;
         sumFormula.Should().Contain("SUM");
     }
+
+    [Fact]
+    public async Task ParseBowlLinesAsync_RealBowlLines2File_ParsesCorrectly()
+    {
+        // Arrange - Load the actual Bowl Lines (2).xlsx file from reference-docs
+        var projectRoot = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", ".."));
+        var filePath = Path.Combine(projectRoot, "reference-docs", "Bowl-Lines-2.xlsx");
+        
+        // Skip test if file doesn't exist (for CI environments without the file)
+        if (!File.Exists(filePath))
+        {
+            return;
+        }
+
+        using var fileStream = File.OpenRead(filePath);
+
+        // Act
+        var result = await _service.ParseBowlLinesAsync(fileStream, 2025);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Year.Should().Be(2025);
+        result.Games.Should().HaveCount(35); // The actual file has 35 games
+        result.TotalGames.Should().Be(35);
+
+        // Expected confidence sum = N * (N + 1) / 2 = 35 * 36 / 2 = 630
+        var expectedSum = result.TotalGames * (result.TotalGames + 1) / 2;
+        expectedSum.Should().Be(630);
+
+        // Verify first game
+        var firstGame = result.Games[0];
+        firstGame.GameNumber.Should().Be(1);
+        firstGame.Favorite.Should().Be("Washington");
+        firstGame.Line.Should().Be(-8.5m);
+        firstGame.Underdog.Should().Be("Boise State");
+
+        // Verify last game
+        var lastGame = result.Games[34];
+        lastGame.GameNumber.Should().Be(35);
+        lastGame.Favorite.Should().Be("Mississippi State");
+        lastGame.Line.Should().Be(-3m);
+        lastGame.Underdog.Should().Be("Wake Forest");
+    }
 }
