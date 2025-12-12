@@ -65,6 +65,9 @@ export class BowlPicksPage {
    */
   async enterName(name: string): Promise<void> {
     await this.nameInput.fill(name);
+    // Trigger blur to ensure Blazor binding updates
+    await this.nameInput.blur();
+    await this.page.waitForTimeout(200); // Wait for Blazor to process the binding
   }
 
   /**
@@ -72,7 +75,10 @@ export class BowlPicksPage {
    */
   async selectYearAndContinue(year: number): Promise<void> {
     await this.yearSelect.selectOption(year.toString());
-    await this.continueButton.click();
+    // Wait for button to be enabled (Blazor binding delay)
+    await this.continueButton.waitFor({ state: 'visible', timeout: 5000 });
+    await this.page.waitForTimeout(500); // Additional wait for Blazor to update button state
+    await this.continueButton.click({ force: false, timeout: 15000 });
     await this.waitForLoadingComplete();
   }
 

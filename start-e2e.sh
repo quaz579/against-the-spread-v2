@@ -42,6 +42,8 @@ if check_port 7071; then
     echo -e "${YELLOW}⚠️  Azure Functions is already running on port 7071${NC}"
 else
     cd "$SCRIPT_DIR/src/AgainstTheSpread.Functions"
+    # Export ADMIN_EMAILS for E2E testing
+    export ADMIN_EMAILS="test-admin@example.com"
     func start --port 7071 > /tmp/func-e2e.log 2>&1 &
     cd "$SCRIPT_DIR"
     
