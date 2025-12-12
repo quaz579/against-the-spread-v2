@@ -9,7 +9,7 @@ import { BowlPicksPage } from '../pages/bowl-picks-page';
 
 // Test constants
 const TEST_NAME = 'Bowl E2E Test User';
-const TEST_YEAR = 2025;
+const TEST_YEAR = 2024; // Use 2024 for bowl tests to avoid conflicts with regular season tests
 const DOWNLOAD_DIR = getDefaultDownloadDir();
 
 // Get repository root path

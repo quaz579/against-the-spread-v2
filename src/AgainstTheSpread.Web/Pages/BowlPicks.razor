@@ -114,8 +114,6 @@
             @foreach (var game in bowlLines.Games.OrderBy(g => g.GameNumber))
             {
                 var pick = GetOrCreatePick(game.GameNumber);
-                var favoriteColors = TeamColorService.GetTeamColors(game.Favorite);
-                var underdogColors = TeamColorService.GetTeamColors(game.Underdog);
 
                 <div class="col-12 mb-3">
                     <div class="card">
@@ -227,7 +225,7 @@
     private string userName = "";
     private int selectedYear = DateTime.Now.Year;
     private BowlLines? bowlLines = null;
-    private Dictionary<int, BowlPick> picks = new();
+    private readonly Dictionary<int, BowlPick> picks = new();
     private bool isLoading = false;
     private bool isDownloading = false;
     private string? errorMessage = null;

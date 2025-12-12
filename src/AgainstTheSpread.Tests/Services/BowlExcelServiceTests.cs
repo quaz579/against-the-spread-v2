@@ -18,28 +18,30 @@ public class BowlExcelServiceTests
     private Stream CreateBowlLinesExcel(List<(string BowlName, string Favorite, decimal Line, string Underdog)> games)
     {
         ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-        var package = new ExcelPackage();
-        var worksheet = package.Workbook.Worksheets.Add("Bowl Lines");
-
-        // Headers in row 1
-        worksheet.Cells[1, 1].Value = "Bowl Name";
-        worksheet.Cells[1, 2].Value = "Favorite";
-        worksheet.Cells[1, 3].Value = "Line";
-        worksheet.Cells[1, 4].Value = "Under Dog";
-
-        // Data rows
-        int row = 2;
-        foreach (var game in games)
-        {
-            worksheet.Cells[row, 1].Value = game.BowlName;
-            worksheet.Cells[row, 2].Value = game.Favorite;
-            worksheet.Cells[row, 3].Value = game.Line;
-            worksheet.Cells[row, 4].Value = game.Underdog;
-            row++;
-        }
-
         var stream = new MemoryStream();
-        package.SaveAs(stream);
+        using (var package = new ExcelPackage())
+        {
+            var worksheet = package.Workbook.Worksheets.Add("Bowl Lines");
+
+            // Headers in row 1
+            worksheet.Cells[1, 1].Value = "Bowl Name";
+            worksheet.Cells[1, 2].Value = "Favorite";
+            worksheet.Cells[1, 3].Value = "Line";
+            worksheet.Cells[1, 4].Value = "Under Dog";
+
+            // Data rows
+            int row = 2;
+            foreach (var game in games)
+            {
+                worksheet.Cells[row, 1].Value = game.BowlName;
+                worksheet.Cells[row, 2].Value = game.Favorite;
+                worksheet.Cells[row, 3].Value = game.Line;
+                worksheet.Cells[row, 4].Value = game.Underdog;
+                row++;
+            }
+
+            package.SaveAs(stream);
+        }
         stream.Position = 0;
         return stream;
     }
@@ -92,20 +94,22 @@ public class BowlExcelServiceTests
     {
         // Arrange
         ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-        var package = new ExcelPackage();
-        var worksheet = package.Workbook.Worksheets.Add("Bowl Lines");
-        worksheet.Cells[1, 1].Value = "Bowl Name";
-        worksheet.Cells[1, 2].Value = "Favorite";
-        worksheet.Cells[1, 3].Value = "Line";
-        worksheet.Cells[1, 4].Value = "Under Dog";
-        
-        var stream = new MemoryStream();
-        package.SaveAs(stream);
-        stream.Position = 0;
+        using (var package = new ExcelPackage())
+        {
+            var worksheet = package.Workbook.Worksheets.Add("Bowl Lines");
+            worksheet.Cells[1, 1].Value = "Bowl Name";
+            worksheet.Cells[1, 2].Value = "Favorite";
+            worksheet.Cells[1, 3].Value = "Line";
+            worksheet.Cells[1, 4].Value = "Under Dog";
 
-        // Act & Assert
-        await Assert.ThrowsAsync<FormatException>(() => 
-            _service.ParseBowlLinesAsync(stream, 2024));
+            var stream = new MemoryStream();
+            package.SaveAs(stream);
+            stream.Position = 0;
+
+            // Act & Assert
+            await Assert.ThrowsAsync<FormatException>(() => 
+                _service.ParseBowlLinesAsync(stream, 2024));
+        }
     }
 
     [Fact]
@@ -113,17 +117,19 @@ public class BowlExcelServiceTests
     {
         // Arrange
         ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-        var package = new ExcelPackage();
-        var worksheet = package.Workbook.Worksheets.Add("Bowl Lines");
-        worksheet.Cells[1, 1].Value = "Only One Column";
-        
-        var stream = new MemoryStream();
-        package.SaveAs(stream);
-        stream.Position = 0;
+        using (var package = new ExcelPackage())
+        {
+            var worksheet = package.Workbook.Worksheets.Add("Bowl Lines");
+            worksheet.Cells[1, 1].Value = "Only One Column";
 
-        // Act & Assert
-        await Assert.ThrowsAsync<FormatException>(() => 
-            _service.ParseBowlLinesAsync(stream, 2024));
+            var stream = new MemoryStream();
+            package.SaveAs(stream);
+            stream.Position = 0;
+
+            // Act & Assert
+            await Assert.ThrowsAsync<FormatException>(() => 
+                _service.ParseBowlLinesAsync(stream, 2024));
+        }
     }
 
     private List<BowlPick> CreateValidPicks(int totalGames)

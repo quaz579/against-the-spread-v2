@@ -34,7 +34,11 @@ public class BowlPicksFunction
 
         try
         {
-            var body = await new StreamReader(req.Body).ReadToEndAsync();
+            string body;
+            using (var reader = new StreamReader(req.Body))
+            {
+                body = await reader.ReadToEndAsync();
+            }
             var userPicks = JsonSerializer.Deserialize<BowlUserPicks>(body, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true

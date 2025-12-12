@@ -43,8 +43,9 @@ public class BowlExcelService : IBowlExcelService
             for (int col = 1; col <= 15; col++)
             {
                 var cellValue = worksheet.Cells[row, col].Text?.Trim();
-                if (cellValue?.Contains("Bowl", StringComparison.OrdinalIgnoreCase) == true &&
-                    cellValue?.Contains("Name", StringComparison.OrdinalIgnoreCase) == true)
+                if (cellValue != null && 
+                    cellValue.Contains("Bowl", StringComparison.OrdinalIgnoreCase) &&
+                    cellValue.Contains("Name", StringComparison.OrdinalIgnoreCase))
                 {
                     headerRow = row;
                     bowlNameCol = col;
