@@ -58,4 +58,36 @@ public interface IStorageService
         int week,
         int year,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets bowl lines for a specific year
+    /// </summary>
+    /// <param name="year">Year</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>BowlLines object or null if not found</returns>
+    Task<BowlLines?> GetBowlLinesAsync(
+        int year,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Uploads bowl lines Excel file to blob storage
+    /// </summary>
+    /// <param name="excelStream">Excel file stream</param>
+    /// <param name="year">Year</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>URL of the uploaded blob</returns>
+    Task<string> UploadBowlLinesAsync(
+        Stream excelStream,
+        int year,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks if bowl lines are available for a specific year
+    /// </summary>
+    /// <param name="year">Year</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>True if bowl lines exist</returns>
+    Task<bool> BowlLinesExistAsync(
+        int year,
+        CancellationToken cancellationToken = default);
 }

@@ -136,6 +136,81 @@
                         </ul>
                     </div>
                 </div>
+
+                <!-- Bowl Games Upload Section -->
+                <hr class="my-5" />
+                <h2 class="mb-4">🏆 Bowl Games - Upload Bowl Lines</h2>
+
+                @if (!string.IsNullOrEmpty(bowlErrorMessage))
+                {
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <strong>Error!</strong> @bowlErrorMessage
+                        <button type="button" class="btn-close" @onclick="ClearBowlError"></button>
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(bowlSuccessMessage))
+                {
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <strong>Success!</strong> @bowlSuccessMessage
+                        <button type="button" class="btn-close" @onclick="ClearBowlSuccess"></button>
+                    </div>
+                }
+
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">Upload Bowl Game Lines</h5>
+                        <p class="text-muted">Upload an Excel file (.xlsx) containing the bowl game betting lines.</p>
+
+                        <div class="mb-3">
+                            <label for="bowlYearInput" class="form-label">Bowl Season Year</label>
+                            <input type="number" class="form-control" id="bowlYearInput" @bind="bowlYear" min="2024" max="@(DateTime.Now.Year + 5)"
+                                placeholder="Enter year" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="bowlFileInput" class="form-label">Bowl Lines Excel File</label>
+                            <InputFile class="form-control" id="bowlFileInput" OnChange="OnBowlFileSelected"
+                                accept=".xlsx,.xls" />
+                            <div class="form-text">
+                                Select an Excel file with bowl game lines. Must include: Bowl Name, Favorite, Line, Underdog, Date.
+                            </div>
+                        </div>
+
+                        @if (selectedBowlFile != null)
+                        {
+                            <div class="alert alert-info">
+                                <strong>Selected file:</strong> @selectedBowlFile.Name (@(selectedBowlFile.Size / 1024) KB)
+                            </div>
+                        }
+
+                        <button class="btn btn-success btn-lg w-100" @onclick="UploadBowlFile"
+                            disabled="@(isBowlUploading || selectedBowlFile == null)">
+                            @if (isBowlUploading)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                <span>Uploading Bowl Lines...</span>
+                            }
+                            else
+                            {
+                                <span>🏆 Upload Bowl Lines</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm mt-4">
+                    <div class="card-body">
+                        <h5 class="card-title">📋 Bowl File Format Requirements</h5>
+                        <ul class="mb-0">
+                            <li>Excel file (.xlsx)</li>
+                            <li>Must contain columns: Bowl Name, Favorite, Line, Underdog (Under Dog), Date</li>
+                            <li>Line format: -7.5 or +3.5 (numeric values)</li>
+                            <li>Date format: MM/DD/YYYY or similar</li>
+                            <li>Each row represents one bowl game</li>
+                        </ul>
+                    </div>
+                </div>
             }
         </div>
     </div>
@@ -151,6 +226,13 @@
     private bool isUploading = false;
     private string? errorMessage;
     private string? successMessage;
+
+    // Bowl upload fields
+    private int bowlYear = DateTime.Now.Year;
+    private IBrowserFile? selectedBowlFile;
+    private bool isBowlUploading = false;
+    private string? bowlErrorMessage;
+    private string? bowlSuccessMessage;
 
     protected override async Task OnInitializedAsync()
     {
@@ -273,6 +355,68 @@
     private void ClearSuccess()
     {
         successMessage = null;
+    }
+
+    // Bowl upload methods
+    private void OnBowlFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedBowlFile = e.File;
+        ClearBowlMessages();
+    }
+
+    private async Task UploadBowlFile()
+    {
+        if (selectedBowlFile == null)
+            return;
+
+        isBowlUploading = true;
+        ClearBowlMessages();
+
+        try
+        {
+            // Read file stream
+            using var stream = selectedBowlFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024); // 10 MB limit
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            memoryStream.Position = 0;
+
+            // Upload to API
+            var response = await ApiService.UploadBowlLinesAsync(bowlYear, memoryStream, selectedBowlFile.Name);
+
+            if (response?.Success == true)
+            {
+                bowlSuccessMessage = response.Message;
+                selectedBowlFile = null;
+            }
+            else
+            {
+                bowlErrorMessage = "Failed to upload bowl file. Please check the format and try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            bowlErrorMessage = $"Error uploading bowl file: {ex.Message}";
+        }
+        finally
+        {
+            isBowlUploading = false;
+        }
+    }
+
+    private void ClearBowlMessages()
+    {
+        bowlErrorMessage = null;
+        bowlSuccessMessage = null;
+    }
+
+    private void ClearBowlError()
+    {
+        bowlErrorMessage = null;
+    }
+
+    private void ClearBowlSuccess()
+    {
+        bowlSuccessMessage = null;
     }
 
     // Helper classes for SWA auth

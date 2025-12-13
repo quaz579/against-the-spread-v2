@@ -17,17 +17,28 @@ export class AdminPage {
     readonly mockAuthUsernameInput: Locator;
     readonly mockAuthSubmitButton: Locator;
 
-    // Upload form elements
+    // Upload form elements (weekly lines)
     readonly weekInput: Locator;
     readonly yearInput: Locator;
     readonly fileInput: Locator;
     readonly uploadButton: Locator;
     readonly selectedFileAlert: Locator;
 
+    // Bowl upload form elements
+    readonly bowlYearInput: Locator;
+    readonly bowlFileInput: Locator;
+    readonly bowlUploadButton: Locator;
+    readonly bowlSelectedFileAlert: Locator;
+
     // Status elements
     readonly successAlert: Locator;
     readonly errorAlert: Locator;
     readonly uploadSpinner: Locator;
+
+    // Bowl status elements
+    readonly bowlSuccessAlert: Locator;
+    readonly bowlErrorAlert: Locator;
+    readonly bowlUploadSpinner: Locator;
 
     constructor(page: Page) {
         this.page = page;
@@ -43,17 +54,28 @@ export class AdminPage {
         this.mockAuthUsernameInput = page.locator('input[name="userDetails"]');
         this.mockAuthSubmitButton = page.getByRole('button', { name: 'Login' });
 
-        // Upload form elements
+        // Upload form elements (weekly lines)
         this.weekInput = page.locator('#weekInput');
         this.yearInput = page.locator('#yearInput');
         this.fileInput = page.locator('#fileInput');
         this.uploadButton = page.getByRole('button', { name: /Upload Lines/i });
-        this.selectedFileAlert = page.locator('.alert-info').filter({ hasText: 'Selected file' });
+        this.selectedFileAlert = page.locator('.alert-info').filter({ hasText: 'Selected file' }).first();
 
-        // Status elements
-        this.successAlert = page.locator('.alert-success');
-        this.errorAlert = page.locator('.alert-danger');
-        this.uploadSpinner = page.locator('.spinner-border');
+        // Bowl upload form elements
+        this.bowlYearInput = page.locator('#bowlYearInput');
+        this.bowlFileInput = page.locator('#bowlFileInput');
+        this.bowlUploadButton = page.getByRole('button', { name: /Upload Bowl Lines/i });
+        this.bowlSelectedFileAlert = page.locator('.alert-info').filter({ hasText: 'Selected file' }).last();
+
+        // Status elements (for weekly lines section)
+        this.successAlert = page.locator('.alert-success').first();
+        this.errorAlert = page.locator('.alert-danger').first();
+        this.uploadSpinner = page.locator('.spinner-border').first();
+
+        // Bowl status elements
+        this.bowlSuccessAlert = page.locator('.alert-success').filter({ hasText: /bowl/i });
+        this.bowlErrorAlert = page.locator('.alert-danger').filter({ hasText: /bowl/i });
+        this.bowlUploadSpinner = page.locator('.spinner-border').last();
     }
 
     /**
@@ -186,6 +208,89 @@ export class AdminPage {
     async getErrorMessage(): Promise<string> {
         if (await this.errorAlert.isVisible()) {
             return await this.errorAlert.textContent() || '';
+        }
+        return '';
+    }
+
+    /**
+     * Upload a bowl lines file through the admin UI
+     * @param filePath - Absolute path to the Excel file
+     * @param year - Year for bowl season
+     */
+    async uploadBowlLinesFile(filePath: string, year: number): Promise<void> {
+        // Ensure we're on the admin page and authenticated
+        if (await this.isLoginRequired()) {
+            throw new Error('Not authenticated. Call loginWithMockAuth first.');
+        }
+
+        // Set up network logging to debug auth issues
+        this.page.on('request', request => {
+            if (request.url().includes('/api/')) {
+                console.log(`API Request: ${request.method()} ${request.url()}`);
+            }
+        });
+        this.page.on('response', response => {
+            if (response.url().includes('/api/')) {
+                console.log(`API Response: ${response.status()} ${response.url()}`);
+            }
+        });
+
+        // Fill in year for bowl lines
+        await this.bowlYearInput.fill(year.toString());
+
+        // Upload file using the bowl file input
+        await this.bowlFileInput.setInputFiles(filePath);
+
+        // Wait for file to be selected - look for any alert-info with the file name
+        await this.page.waitForTimeout(1000); // Give time for file selection
+
+        // Click bowl upload button
+        await this.bowlUploadButton.click();
+
+        // Wait for upload to complete - wait for either success or error message
+        const successLocator = this.page.locator('.alert-success');
+        const errorLocator = this.page.locator('.alert-danger');
+        
+        // Wait for either success or error to appear
+        await Promise.race([
+            successLocator.waitFor({ state: 'visible', timeout: 30000 }).catch(() => {}),
+            errorLocator.waitFor({ state: 'visible', timeout: 30000 }).catch(() => {})
+        ]);
+
+        // Check for success or error
+        const hasSuccess = await successLocator.isVisible().catch(() => false);
+        const hasError = await errorLocator.isVisible().catch(() => false);
+
+        if (hasError) {
+            const errorText = await errorLocator.textContent();
+            throw new Error(`Bowl upload failed: ${errorText}`);
+        }
+
+        if (!hasSuccess) {
+            throw new Error('Bowl upload did not show success message');
+        }
+
+        console.log(`Successfully uploaded bowl lines for Year ${year} via admin UI`);
+    }
+
+    /**
+     * Get the bowl success message text
+     */
+    async getBowlSuccessMessage(): Promise<string> {
+        const successLocator = this.page.locator('.alert-success').last();
+        if (await successLocator.isVisible()) {
+            return await successLocator.textContent() || '';
+        }
+        return '';
+    }
+
+    /**
+     * Get the bowl error message text
+     */
+    async getBowlErrorMessage(): Promise<string> {
+        const errorLocator = this.page.locator('.alert-danger').last();
+        if (await errorLocator.isVisible()) {
+            return await errorLocator.textContent() || '';
         }
         return '';
     }

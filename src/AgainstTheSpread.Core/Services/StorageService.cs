@@ -15,15 +15,23 @@ public class StorageService : IStorageService
 {
     private readonly BlobContainerClient _containerClient;
     private readonly IExcelService _excelService;
+    private readonly IBowlExcelService? _bowlExcelService;
     private readonly ILogger<StorageService> _logger;
     private const string ContainerName = "gamefiles";
     private const string LinesFolder = "lines";
+    private const string BowlLinesFolder = "bowl-lines";
 
     public StorageService(string connectionString, IExcelService excelService, ILogger<StorageService> logger)
+        : this(connectionString, excelService, null, logger)
+    {
+    }
+
+    public StorageService(string connectionString, IExcelService excelService, IBowlExcelService? bowlExcelService, ILogger<StorageService> logger)
     {
         var blobServiceClient = new BlobServiceClient(connectionString);
         _containerClient = blobServiceClient.GetBlobContainerClient(ContainerName);
         _excelService = excelService;
+        _bowlExcelService = bowlExcelService;
         _logger = logger;
     }
 
@@ -209,5 +217,103 @@ public class StorageService : IStorageService
             cancellationToken: cancellationToken);
 
         return excelBlobClient.Uri.ToString();
+    }
+
+    /// <summary>
+    /// Gets bowl lines for a specific year
+    /// </summary>
+    public async Task<BowlLines?> GetBowlLinesAsync(
+        int year,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var jsonBlobName = $"{BowlLinesFolder}/bowls-{year}.json";
+            var jsonBlobClient = _containerClient.GetBlobClient(jsonBlobName);
+
+            if (!await jsonBlobClient.ExistsAsync(cancellationToken))
+            {
+                return null;
+            }
+
+            var download = await jsonBlobClient.DownloadContentAsync(cancellationToken);
+            var json = download.Value.Content.ToString();
+
+            return JsonSerializer.Deserialize<BowlLines>(json);
+        }
+        catch (Exception ex) when (ex.Message.Contains("404") || ex.Message.Contains("not found"))
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Uploads bowl lines Excel file to blob storage
+    /// </summary>
+    public async Task<string> UploadBowlLinesAsync(
+        Stream excelStream,
+        int year,
+        CancellationToken cancellationToken = default)
+    {
+        if (_bowlExcelService == null)
+        {
+            throw new InvalidOperationException("BowlExcelService not configured");
+        }
+
+        // Ensure container exists
+        await _containerClient.CreateIfNotExistsAsync(
+            PublicAccessType.None,
+            cancellationToken: cancellationToken);
+
+        // Parse the Excel file
+        excelStream.Position = 0;
+        var bowlLines = await _bowlExcelService.ParseBowlLinesAsync(excelStream, year, cancellationToken);
+
+        // Upload Excel file
+        var excelBlobName = $"{BowlLinesFolder}/bowls-{year}.xlsx";
+        var excelBlobClient = _containerClient.GetBlobClient(excelBlobName);
+
+        excelStream.Position = 0;
+        await excelBlobClient.UploadAsync(
+            excelStream,
+            overwrite: true,
+            cancellationToken: cancellationToken);
+
+        // Upload parsed JSON for fast API access
+        var jsonBlobName = $"{BowlLinesFolder}/bowls-{year}.json";
+        var jsonBlobClient = _containerClient.GetBlobClient(jsonBlobName);
+
+        var json = JsonSerializer.Serialize(bowlLines, new JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+
+        await jsonBlobClient.UploadAsync(
+            BinaryData.FromString(json),
+            overwrite: true,
+            cancellationToken: cancellationToken);
+
+        return excelBlobClient.Uri.ToString();
+    }
+
+    /// <summary>
+    /// Checks if bowl lines are available for a specific year
+    /// </summary>
+    public async Task<bool> BowlLinesExistAsync(
+        int year,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var jsonBlobName = $"{BowlLinesFolder}/bowls-{year}.json";
+            var jsonBlobClient = _containerClient.GetBlobClient(jsonBlobName);
+
+            return await jsonBlobClient.ExistsAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to check bowl lines existence for year {Year}", year);
+            return false;
+        }
     }
 }

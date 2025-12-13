@@ -13,6 +13,7 @@ var host = new HostBuilder()
 
         // Register application services
         services.AddSingleton<IExcelService, ExcelService>();
+        services.AddSingleton<IBowlExcelService, BowlExcelService>();
         services.AddSingleton<IStorageService>(sp =>
         {
             // Use AZURE_STORAGE_CONNECTION_STRING for custom storage, fallback to AzureWebJobsStorage for local dev
@@ -20,8 +21,9 @@ var host = new HostBuilder()
                 ?? Environment.GetEnvironmentVariable("AzureWebJobsStorage")
                 ?? "UseDevelopmentStorage=true";
             var excelService = sp.GetRequiredService<IExcelService>();
+            var bowlExcelService = sp.GetRequiredService<IBowlExcelService>();
             var logger = sp.GetRequiredService<ILogger<StorageService>>();
-            return new StorageService(connectionString, excelService, logger);
+            return new StorageService(connectionString, excelService, bowlExcelService, logger);
         });
     })
     .Build();

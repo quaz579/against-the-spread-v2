@@ -112,16 +112,117 @@ public class ApiService
         }
     }
 
+    // ============ Bowl Game Methods ============
+
+    /// <summary>
+    /// Get bowl lines for a specific year
+    /// </summary>
+    public async Task<BowlLines?> GetBowlLinesAsync(int year)
+    {
+        try
+        {
+            _logger.LogInformation("Calling API: api/bowl-lines?year={Year}", year);
+            return await _httpClient.GetFromJsonAsync<BowlLines>($"api/bowl-lines?year={year}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception calling bowl lines API for year {Year}", year);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Check if bowl lines exist for a specific year
+    /// </summary>
+    public async Task<bool> BowlLinesExistAsync(int year)
+    {
+        try
+        {
+            var response = await _httpClient.GetFromJsonAsync<BowlLinesExistsResponse>($"api/bowl-lines/exists?year={year}");
+            return response?.Exists ?? false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to check bowl lines existence for year {Year}", year);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Submit bowl picks and download Excel file
+    /// </summary>
+    public async Task<byte[]?> SubmitBowlPicksAsync(BowlUserPicks bowlPicks)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync("api/bowl-picks", bowlPicks);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadAsByteArrayAsync();
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to submit bowl picks for {Name}", bowlPicks.Name);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Upload bowl lines file
+    /// </summary>
+    public async Task<BowlUploadResponse?> UploadBowlLinesAsync(int year, Stream fileStream, string fileName)
+    {
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            var streamContent = new StreamContent(fileStream);
+            streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            content.Add(streamContent, "file", fileName);
+
+            var response = await _httpClient.PostAsync($"api/upload-bowl-lines?year={year}", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadFromJsonAsync<BowlUploadResponse>();
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to upload bowl lines for year {Year}", year);
+            return null;
+        }
+    }
+
     private class WeeksResponse
     {
         public int Year { get; set; }
         public List<int> Weeks { get; set; } = new();
     }
 
+    private class BowlLinesExistsResponse
+    {
+        public int Year { get; set; }
+        public bool Exists { get; set; }
+    }
+
     public class UploadResponse
     {
         public bool Success { get; set; }
         public int Week { get; set; }
+        public int Year { get; set; }
+        public int GamesCount { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
+
+    public class BowlUploadResponse
+    {
+        public bool Success { get; set; }
         public int Year { get; set; }
         public int GamesCount { get; set; }
         public string Message { get; set; } = string.Empty;
