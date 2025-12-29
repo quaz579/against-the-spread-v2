@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /Users/Ben.Grossman/Code/against-the-spread-v2 log --oneline -20)"
+    ]
+  }
+}
