@@ -6,14 +6,16 @@
 |-------|--------|----------|-------------|
 | 1 | Complete | 19/19 | Infrastructure Separation |
 | 2 | Complete | 18/18 | Database Foundation |
-| 3 | Complete | 22/22 | User Authentication & Pick Submission |
-| 4 | Complete | 14/14 | Admin Results Entry |
-| 5 | Complete | 16/16 | Leaderboard |
-| 6 | Not Started | 0/8 | Bowl Games (Future) |
+| 3 | In Progress | 22/27 | User Authentication & Pick Submission (E2E tests pending) |
+| 4 | In Progress | 14/20 | Admin Results Entry (E2E tests pending) |
+| 5 | In Progress | 16/22 | Leaderboard (E2E tests pending) |
+| 6 | Not Started | 0/11 | Bowl Games (Future) |
 | 7 | Not Started | 0/6 | Sports Data API (Future) |
 | 8 | Not Started | 0/12 | PR Preview Environments & E2E Testing (Future) |
 
-**Overall Progress**: 89/115 tasks completed
+**Overall Progress**: 89/135 tasks completed
+
+**Note**: Phases 3-5 have backend/UI complete but E2E test coverage pending.
 
 ---
 
@@ -312,12 +314,20 @@ Push to main → Terraform Plan/Apply → Deploy to Dev → Deploy to Prod
 - Modified: `src/AgainstTheSpread.Web/Pages/Picks.razor` (dual-mode with auth support)
 - Modified: `src/AgainstTheSpread.Web/wwwroot/staticwebapp.config.json` (protected routes)
 
+### 3.9 E2E Tests for Phase 3
+- [ ] **3.9.1** Create `tests/specs/auth-picks.spec.ts` - authenticated pick submission flow
+- [ ] **3.9.2** Test: User logs in, selects games, submits picks to database
+- [ ] **3.9.3** Test: User can view their submitted picks after page reload
+- [ ] **3.9.4** Test: Game lock indicator shows for past games
+- [ ] **3.9.5** Test: Locked games cannot be selected
+
 ### Phase 3 Success Criteria
 - [x] Authenticated users can submit picks via the app
 - [x] Picks are persisted to database
 - [x] Game locking prevents changes after kickoff (server-side rejection)
 - [x] Unauthenticated users still get Excel download flow
 - [x] Lock status visible in UI
+- [ ] E2E tests pass for authenticated pick flow
 
 ---
 
@@ -371,12 +381,21 @@ Push to main → Terraform Plan/Apply → Deploy to Dev → Deploy to Prod
 - Modified: `src/AgainstTheSpread.Web/Services/ApiService.cs`
 - Modified: `src/AgainstTheSpread.Functions/Program.cs`
 
+### 4.6 E2E Tests for Phase 4
+- [ ] **4.6.1** Create `tests/specs/admin-results.spec.ts` - admin results entry flow
+- [ ] **4.6.2** Test: Admin loads games for a week with scores inputs
+- [ ] **4.6.3** Test: Admin enters scores and submits results
+- [ ] **4.6.4** Test: Spread winner badges display correctly after submission
+- [ ] **4.6.5** Test: Push scenario displays correctly (when adjusted scores equal)
+- [ ] **4.6.6** Test: Non-admin cannot access results submission
+
 ### Phase 4 Success Criteria
 - [x] Admin can enter game results via UI
 - [x] Spread winner calculated correctly
 - [x] Results stored in database
 - [x] Single game and bulk result entry supported
 - [x] Non-admins cannot submit results (admin check in API)
+- [ ] E2E tests pass for admin results entry flow
 
 ---
 
@@ -440,6 +459,14 @@ Push to main → Terraform Plan/Apply → Deploy to Dev → Deploy to Prod
 - Modified: `src/AgainstTheSpread.Web/Layout/NavMenu.razor`
 - Modified: `src/AgainstTheSpread.Functions/Program.cs`
 
+### 5.8 E2E Tests for Phase 5
+- [ ] **5.8.1** Create `tests/specs/leaderboard.spec.ts` - leaderboard display flow
+- [ ] **5.8.2** Test: Leaderboard page loads and displays season standings
+- [ ] **5.8.3** Test: Weekly view shows correct week standings
+- [ ] **5.8.4** Test: User can click player name to view history
+- [ ] **5.8.5** Test: My Picks page requires authentication
+- [ ] **5.8.6** Test: My Picks displays user's pick history with WIN/LOSS badges
+
 ### Phase 5 Success Criteria
 - [x] Leaderboard page displays season standings
 - [x] Weekly breakdown shows correct win/loss counts
@@ -448,6 +475,7 @@ Push to main → Terraform Plan/Apply → Deploy to Dev → Deploy to Prod
 - [x] User history page accessible from leaderboard
 - [x] Navigation links work correctly
 - [x] 14 unit tests for LeaderboardService all passing
+- [ ] E2E tests pass for leaderboard and user history flows
 
 ---
 
@@ -470,6 +498,11 @@ Push to main → Terraform Plan/Apply → Deploy to Dev → Deploy to Prod
 ### 6.3 Bowl API Endpoints
 - [ ] **6.3.1** Create authenticated bowl picks endpoints
 - [ ] **6.3.2** Create bowl leaderboard endpoint
+
+### 6.4 E2E Tests for Phase 6
+- [ ] **6.4.1** Update `tests/specs/bowl-flow.spec.ts` for authenticated bowl picks
+- [ ] **6.4.2** Test: User logs in and submits bowl picks with confidence points
+- [ ] **6.4.3** Test: Bowl leaderboard displays correctly with confidence-based scoring
 
 ### Phase 6 Key Files
 - New: `src/AgainstTheSpread.Data/Entities/BowlPick.cs`
@@ -576,18 +609,42 @@ PR to main → Deploy to Dev Preview → Run Playwright E2E → Report results o
 
 ## Testing Strategy
 
+### IMPORTANT: Pre-Commit Testing Requirements
+
+**Before committing or pushing any code changes:**
+
+1. **Run all unit tests locally:** `dotnet test`
+2. **Run E2E tests locally:** `cd tests && npm test`
+3. **Ensure both pass** before creating commits or pushing to remote
+
+This prevents CI failures and ensures code quality. The CI pipeline will run these same tests, but catching issues locally saves time and keeps the build green.
+
 ### Per-Phase Testing
 Each phase should include:
 1. **Unit tests** for new services (xUnit + Moq + FluentAssertions)
 2. **Integration tests** for database operations (in-memory SQLite or real SQL)
-3. **E2E tests** for critical user flows (Playwright)
+3. **E2E tests** for critical user flows (Playwright) - **Required for all new features**
+
+### E2E Test Requirements by Phase
+
+| Phase | E2E Test Coverage Required |
+|-------|---------------------------|
+| Phase 3 | Auth flow, pick submission (authenticated + unauthenticated), game locking UI |
+| Phase 4 | Admin results entry, spread winner display |
+| Phase 5 | Leaderboard display, user history, season standings |
+| Phase 6 | Bowl picks with confidence points, bowl leaderboard |
+| Phase 7 | API sync functionality (if UI-facing) |
+| Phase 8 | PR preview E2E integration |
 
 ### Key Test Scenarios
-- [ ] Game locking: server rejects picks after GameDate
-- [ ] Spread calculation: correct winner determination
-- [ ] Leaderboard accuracy: wins, pushes, percentages
-- [ ] Auth flow: login → submit picks → view history
-- [ ] Dual-mode picks: authenticated vs spreadsheet
+- [x] Game locking: server rejects picks after GameDate (covered in existing E2E)
+- [x] Admin upload: lines upload via admin UI (covered in full-flow.spec.ts)
+- [x] Dual-mode picks: authenticated vs spreadsheet download (covered in full-flow.spec.ts)
+- [x] Bowl picks: complete bowl flow with confidence points (covered in bowl-flow.spec.ts)
+- [ ] Spread calculation: correct winner determination (needs E2E coverage)
+- [ ] Leaderboard accuracy: wins, pushes, percentages (needs E2E coverage)
+- [ ] Auth flow: login → submit picks → view history (needs E2E coverage)
+- [ ] Results entry: admin enters scores, winners calculated (needs E2E coverage)
 
 ---
 
@@ -637,3 +694,29 @@ src/AgainstTheSpread.Web/
 ├── Layout/                 # NavMenu
 └── wwwroot/                # Static config
 ```
+
+### Running Tests (REQUIRED before commits)
+
+```bash
+# 1. Run all unit tests
+dotnet test
+
+# 2. Start E2E environment (in separate terminal)
+cd tests
+npm run e2e:env
+
+# 3. Run E2E tests (in another terminal, after env is ready)
+cd tests
+npm test
+
+# 4. Run specific E2E test file
+npm test -- --grep "Week 11"
+
+# 5. Run E2E tests with UI (for debugging)
+npm run test:ui
+```
+
+**E2E Environment Ports:**
+- SWA CLI: http://localhost:4280 (frontend + API proxy)
+- Azure Functions: http://localhost:7071 (backend API)
+- Azurite: http://localhost:10000 (blob storage emulator)
