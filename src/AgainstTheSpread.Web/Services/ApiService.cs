@@ -378,4 +378,134 @@ public class ApiService
         public DateTime GameDate { get; set; }
         public bool IsLocked { get; set; }
     }
+
+    // ============ Results Methods ============
+
+    /// <summary>
+    /// Get results for a specific week
+    /// </summary>
+    public async Task<WeekResultsResponse?> GetResultsAsync(int week, int year)
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<WeekResultsResponse>($"api/results/{week}?year={year}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get results for week {Week}, year {Year}", week, year);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Submit results for a week (admin only)
+    /// </summary>
+    public async Task<SubmitResultsResponse?> SubmitResultsAsync(int week, int year, List<ResultInput> results)
+    {
+        try
+        {
+            var request = new SubmitResultsRequest { Results = results };
+            var response = await _httpClient.PostAsJsonAsync($"api/results/{week}?year={year}", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadFromJsonAsync<SubmitResultsResponse>();
+            }
+
+            var errorContent = await response.Content.ReadAsStringAsync();
+            _logger.LogWarning("Failed to submit results: {StatusCode} - {Content}",
+                response.StatusCode, errorContent);
+
+            return new SubmitResultsResponse
+            {
+                Success = false,
+                Message = $"Server error: {response.StatusCode}"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception submitting results for week {Week}, year {Year}", week, year);
+            return new SubmitResultsResponse
+            {
+                Success = false,
+                Message = $"Error: {ex.Message}"
+            };
+        }
+    }
+
+    /// <summary>
+    /// Submit result for a single game (admin only)
+    /// </summary>
+    public async Task<SingleResultResponse?> SubmitSingleResultAsync(int gameId, int favoriteScore, int underdogScore)
+    {
+        try
+        {
+            var request = new { FavoriteScore = favoriteScore, UnderdogScore = underdogScore };
+            var response = await _httpClient.PostAsJsonAsync($"api/results/game/{gameId}", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadFromJsonAsync<SingleResultResponse>();
+            }
+
+            return new SingleResultResponse { Success = false };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception submitting result for game {GameId}", gameId);
+            return new SingleResultResponse { Success = false };
+        }
+    }
+
+    // DTOs for results
+    public class WeekResultsResponse
+    {
+        public int Year { get; set; }
+        public int Week { get; set; }
+        public int TotalGames { get; set; }
+        public int GamesWithResults { get; set; }
+        public List<GameResultDto> Games { get; set; } = new();
+    }
+
+    public class GameResultDto
+    {
+        public int Id { get; set; }
+        public string Favorite { get; set; } = string.Empty;
+        public string Underdog { get; set; } = string.Empty;
+        public decimal Line { get; set; }
+        public DateTime GameDate { get; set; }
+        public bool IsLocked { get; set; }
+        public bool HasResult { get; set; }
+        public int? FavoriteScore { get; set; }
+        public int? UnderdogScore { get; set; }
+        public string? SpreadWinner { get; set; }
+        public bool? IsPush { get; set; }
+        public DateTime? ResultEnteredAt { get; set; }
+    }
+
+    public class SubmitResultsRequest
+    {
+        public List<ResultInput> Results { get; set; } = new();
+    }
+
+    public class ResultInput
+    {
+        public int GameId { get; set; }
+        public int FavoriteScore { get; set; }
+        public int UnderdogScore { get; set; }
+    }
+
+    public class SubmitResultsResponse
+    {
+        public bool Success { get; set; }
+        public int ResultsEntered { get; set; }
+        public int ResultsFailed { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
+
+    public class SingleResultResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
 }

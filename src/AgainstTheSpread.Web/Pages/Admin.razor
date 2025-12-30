@@ -211,6 +211,144 @@
                         </ul>
                     </div>
                 </div>
+
+                <!-- Results Entry Section -->
+                <hr class="my-5" />
+                <h2 class="mb-4">📊 Enter Game Results</h2>
+
+                @if (!string.IsNullOrEmpty(resultsErrorMessage))
+                {
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <strong>Error!</strong> @resultsErrorMessage
+                        <button type="button" class="btn-close" @onclick="ClearResultsError"></button>
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(resultsSuccessMessage))
+                {
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <strong>Success!</strong> @resultsSuccessMessage
+                        <button type="button" class="btn-close" @onclick="ClearResultsSuccess"></button>
+                    </div>
+                }
+
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">Enter Final Scores</h5>
+                        <p class="text-muted">Enter the final scores for games after they have been played.</p>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="resultsWeek" class="form-label">Week</label>
+                                <select class="form-select" id="resultsWeek" @bind="resultsWeek">
+                                    @for (int i = 1; i <= 17; i++)
+                                    {
+                                        <option value="@i">Week @i</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="resultsYear" class="form-label">Year</label>
+                                <input type="number" class="form-control" id="resultsYear" @bind="resultsYear" min="2024" max="2030" />
+                            </div>
+                        </div>
+
+                        <button class="btn btn-outline-primary mb-3" @onclick="LoadGamesForResults" disabled="@isLoadingGames">
+                            @if (isLoadingGames)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                <span>Loading...</span>
+                            }
+                            else
+                            {
+                                <span>Load Games</span>
+                            }
+                        </button>
+
+                        @if (gamesForResults != null && gamesForResults.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Matchup</th>
+                                            <th>Line</th>
+                                            <th style="width: 80px;">Fav</th>
+                                            <th style="width: 80px;">Dog</th>
+                                            <th>Result</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var game in gamesForResults)
+                                        {
+                                            var scores = gameScores.GetValueOrDefault(game.Id, new ScoreEntry());
+                                            <tr class="@(game.HasResult ? "table-success" : game.IsLocked ? "" : "table-warning")">
+                                                <td>
+                                                    <strong>@game.Favorite</strong> vs @game.Underdog
+                                                    <br />
+                                                    <small class="text-muted">@game.GameDate.ToString("ddd M/d h:mm tt")</small>
+                                                </td>
+                                                <td>@game.Line</td>
+                                                <td>
+                                                    <input type="number" class="form-control form-control-sm"
+                                                        value="@scores.FavoriteScore"
+                                                        @onchange="@(e => UpdateFavoriteScore(game.Id, e.Value?.ToString()))"
+                                                        min="0" disabled="@(!game.IsLocked)" />
+                                                </td>
+                                                <td>
+                                                    <input type="number" class="form-control form-control-sm"
+                                                        value="@scores.UnderdogScore"
+                                                        @onchange="@(e => UpdateUnderdogScore(game.Id, e.Value?.ToString()))"
+                                                        min="0" disabled="@(!game.IsLocked)" />
+                                                </td>
+                                                <td>
+                                                    @if (game.HasResult)
+                                                    {
+                                                        @if (game.IsPush == true)
+                                                        {
+                                                            <span class="badge bg-secondary">PUSH</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="badge bg-success">@game.SpreadWinner</span>
+                                                        }
+                                                    }
+                                                    else if (!game.IsLocked)
+                                                    {
+                                                        <small class="text-warning">Not started</small>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <small class="text-muted">
+                                    @gamesForResults.Count(g => g.HasResult) of @gamesForResults.Count games have results
+                                </small>
+                                <button class="btn btn-success btn-lg" @onclick="SubmitResults" disabled="@isSubmittingResults">
+                                    @if (isSubmittingResults)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                        <span>Saving...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>Save Results</span>
+                                    }
+                                </button>
+                            </div>
+                        }
+                        else if (gamesForResults != null)
+                        {
+                            <div class="alert alert-info">
+                                No games found for Week @resultsWeek, @resultsYear. Make sure lines have been uploaded first.
+                            </div>
+                        }
+                    </div>
+                </div>
             }
         </div>
     </div>
@@ -233,6 +371,16 @@
     private bool isBowlUploading = false;
     private string? bowlErrorMessage;
     private string? bowlSuccessMessage;
+
+    // Results entry fields
+    private int resultsWeek = 1;
+    private int resultsYear = DateTime.Now.Year;
+    private bool isLoadingGames = false;
+    private bool isSubmittingResults = false;
+    private string? resultsErrorMessage;
+    private string? resultsSuccessMessage;
+    private List<ApiService.GameResultDto>? gamesForResults;
+    private Dictionary<int, ScoreEntry> gameScores = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -431,5 +579,148 @@
         public string? UserId { get; set; }
         public string? UserDetails { get; set; }
         public List<string>? UserRoles { get; set; }
+    }
+
+    // Results entry methods
+    private async Task LoadGamesForResults()
+    {
+        isLoadingGames = true;
+        ClearResultsMessages();
+
+        try
+        {
+            var response = await ApiService.GetResultsAsync(resultsWeek, resultsYear);
+            if (response != null)
+            {
+                gamesForResults = response.Games;
+
+                // Initialize score entries for games that already have results
+                gameScores.Clear();
+                foreach (var game in response.Games)
+                {
+                    gameScores[game.Id] = new ScoreEntry
+                    {
+                        FavoriteScore = game.FavoriteScore,
+                        UnderdogScore = game.UnderdogScore
+                    };
+                }
+            }
+            else
+            {
+                gamesForResults = new List<ApiService.GameResultDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            resultsErrorMessage = $"Error loading games: {ex.Message}";
+        }
+        finally
+        {
+            isLoadingGames = false;
+        }
+    }
+
+    private void UpdateFavoriteScore(int gameId, string? value)
+    {
+        if (!gameScores.ContainsKey(gameId))
+        {
+            gameScores[gameId] = new ScoreEntry();
+        }
+
+        if (int.TryParse(value, out int score))
+        {
+            gameScores[gameId].FavoriteScore = score;
+        }
+        else
+        {
+            gameScores[gameId].FavoriteScore = null;
+        }
+    }
+
+    private void UpdateUnderdogScore(int gameId, string? value)
+    {
+        if (!gameScores.ContainsKey(gameId))
+        {
+            gameScores[gameId] = new ScoreEntry();
+        }
+
+        if (int.TryParse(value, out int score))
+        {
+            gameScores[gameId].UnderdogScore = score;
+        }
+        else
+        {
+            gameScores[gameId].UnderdogScore = null;
+        }
+    }
+
+    private async Task SubmitResults()
+    {
+        isSubmittingResults = true;
+        ClearResultsMessages();
+
+        try
+        {
+            // Only submit games that have both scores entered
+            var resultsToSubmit = gameScores
+                .Where(kvp => kvp.Value.FavoriteScore.HasValue && kvp.Value.UnderdogScore.HasValue)
+                .Select(kvp => new ApiService.ResultInput
+                {
+                    GameId = kvp.Key,
+                    FavoriteScore = kvp.Value.FavoriteScore!.Value,
+                    UnderdogScore = kvp.Value.UnderdogScore!.Value
+                })
+                .ToList();
+
+            if (!resultsToSubmit.Any())
+            {
+                resultsErrorMessage = "No complete scores to submit. Enter both scores for at least one game.";
+                return;
+            }
+
+            var response = await ApiService.SubmitResultsAsync(resultsWeek, resultsYear, resultsToSubmit);
+
+            if (response?.Success == true)
+            {
+                resultsSuccessMessage = $"Successfully saved {response.ResultsEntered} result(s)!";
+                // Reload games to show updated results
+                await LoadGamesForResults();
+            }
+            else
+            {
+                resultsErrorMessage = response?.Message ?? "Failed to submit results. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            resultsErrorMessage = $"Error submitting results: {ex.Message}";
+        }
+        finally
+        {
+            isSubmittingResults = false;
+        }
+    }
+
+    private void ClearResultsMessages()
+    {
+        resultsErrorMessage = null;
+        resultsSuccessMessage = null;
+    }
+
+    private void ClearResultsError()
+    {
+        resultsErrorMessage = null;
+    }
+
+    private void ClearResultsSuccess()
+    {
+        resultsSuccessMessage = null;
+    }
+
+    // Helper class for score entry
+    private class ScoreEntry
+    {
+        public int? FavoriteScore { get; set; }
+        public int? UnderdogScore { get; set; }
     }
 }

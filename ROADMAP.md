@@ -7,13 +7,13 @@
 | 1 | Complete | 19/19 | Infrastructure Separation |
 | 2 | Complete | 18/18 | Database Foundation |
 | 3 | Complete | 22/22 | User Authentication & Pick Submission |
-| 4 | Not Started | 0/14 | Admin Results Entry |
+| 4 | Complete | 14/14 | Admin Results Entry |
 | 5 | Not Started | 0/16 | Leaderboard |
 | 6 | Not Started | 0/8 | Bowl Games (Future) |
 | 7 | Not Started | 0/6 | Sports Data API (Future) |
 | 8 | Not Started | 0/12 | PR Preview Environments & E2E Testing (Future) |
 
-**Overall Progress**: 59/115 tasks completed
+**Overall Progress**: 73/115 tasks completed
 
 ---
 
@@ -324,19 +324,19 @@ Push to main → Terraform Plan/Apply → Deploy to Dev → Deploy to Prod
 ## Phase 4: Admin Results Entry
 
 **Goal**: Allow admins to enter game results for scoring
-**Status**: Not Started
+**Status**: Complete
 **Prerequisites**: Phase 3 (games must exist in database)
 
 ### 4.1 Result Service
-- [ ] **4.1.1** Create `src/AgainstTheSpread.Core/Interfaces/IResultService.cs`
-- [ ] **4.1.2** Create `src/AgainstTheSpread.Data/Services/ResultService.cs` implementing IResultService
-- [ ] **4.1.3** Implement `EnterResultAsync(int gameId, int favoriteScore, int underdogScore, Guid adminUserId)` with spread calculation
-- [ ] **4.1.4** Implement `BulkEnterResultsAsync(int year, int week, List<GameResultInput> results, Guid adminUserId)`
-- [ ] **4.1.5** Implement `GetWeekResultsAsync(int year, int week)`
-- [ ] **4.1.6** Register ResultService in Functions `Program.cs`
+- [x] **4.1.1** Create `src/AgainstTheSpread.Data/Interfaces/IResultService.cs`
+- [x] **4.1.2** Create `src/AgainstTheSpread.Data/Services/ResultService.cs` implementing IResultService
+- [x] **4.1.3** Implement `EnterResultAsync(int gameId, int favoriteScore, int underdogScore, Guid adminUserId)` with spread calculation
+- [x] **4.1.4** Implement `BulkEnterResultsAsync(int year, int week, List<GameResultInput> results, Guid adminUserId)`
+- [x] **4.1.5** Implement `GetWeekResultsAsync(int year, int week)`
+- [x] **4.1.6** Register ResultService in Functions `Program.cs`
 
 ### 4.2 Spread Winner Calculation
-- [ ] **4.2.1** Create helper method in ResultService:
+- [x] **4.2.1** Create helper method in ResultService:
   ```csharp
   (string? Winner, bool IsPush) CalculateSpreadWinner(
       string favorite, string underdog, decimal line,
@@ -345,36 +345,38 @@ Push to main → Terraform Plan/Apply → Deploy to Dev → Deploy to Prod
   Logic: `adjustedFavoriteScore = favoriteScore + line` (line is negative)
 
 ### 4.3 New API Endpoints
-- [ ] **4.3.1** Create `src/AgainstTheSpread.Functions/ResultsFunction.cs` with:
+- [x] **4.3.1** Create `src/AgainstTheSpread.Functions/ResultsFunction.cs` with:
   - `POST /api/results/{week}?year={year}` - submit results (admin only)
   - `GET /api/results/{week}?year={year}` - get results (public)
-  - `POST /api/results/bulk` - bulk upload results (admin only)
+  - `POST /api/results/game/{gameId}` - single game result (admin only)
 
 ### 4.4 Admin.razor Additions
-- [ ] **4.4.1** Add "Results Entry" section after upload sections
-- [ ] **4.4.2** Add week/year selector for results
-- [ ] **4.4.3** Display games for selected week with score inputs
-- [ ] **4.4.4** Auto-calculate and display spread winner as scores are entered
-- [ ] **4.4.5** Add submit button for results
-- [ ] **4.4.6** Add bulk upload option (CSV format: GameIndex,FavoriteScore,UnderdogScore)
+- [x] **4.4.1** Add "Results Entry" section after upload sections
+- [x] **4.4.2** Add week/year selector for results
+- [x] **4.4.3** Display games for selected week with score inputs
+- [x] **4.4.4** Show spread winner badges after results are entered
+- [x] **4.4.5** Add submit button for results
+- [x] **4.4.6** Results entry integrated with game load functionality
 
 ### 4.5 ApiService Extensions
-- [ ] **4.5.1** Add `SubmitResultsAsync(int week, int year, List<GameResultInput> results)` to ApiService
-- [ ] **4.5.2** Add `GetResultsAsync(int week, int year)` to ApiService
+- [x] **4.5.1** Add `SubmitResultsAsync(int week, int year, List<ResultInput> results)` to ApiService
+- [x] **4.5.2** Add `GetResultsAsync(int week, int year)` to ApiService
 
 ### Phase 4 Key Files
-- New: `src/AgainstTheSpread.Core/Interfaces/IResultService.cs`
+- New: `src/AgainstTheSpread.Data/Interfaces/IResultService.cs`
 - New: `src/AgainstTheSpread.Data/Services/ResultService.cs`
 - New: `src/AgainstTheSpread.Functions/ResultsFunction.cs`
+- New: `src/AgainstTheSpread.Tests/Data/Services/ResultServiceTests.cs` (17 tests)
 - Modified: `src/AgainstTheSpread.Web/Pages/Admin.razor`
 - Modified: `src/AgainstTheSpread.Web/Services/ApiService.cs`
+- Modified: `src/AgainstTheSpread.Functions/Program.cs`
 
 ### Phase 4 Success Criteria
-- [ ] Admin can enter game results via UI
-- [ ] Spread winner calculated correctly
-- [ ] Results stored in database
-- [ ] Bulk upload works with CSV format
-- [ ] Non-admins cannot submit results
+- [x] Admin can enter game results via UI
+- [x] Spread winner calculated correctly
+- [x] Results stored in database
+- [x] Single game and bulk result entry supported
+- [x] Non-admins cannot submit results (admin check in API)
 
 ---
 

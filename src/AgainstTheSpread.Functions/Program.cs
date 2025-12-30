@@ -26,6 +26,7 @@ var host = new HostBuilder()
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IGameService, GameService>();
             services.AddScoped<IPickService, PickService>();
+            services.AddScoped<IResultService, ResultService>();
         }
 
         // Register application services
