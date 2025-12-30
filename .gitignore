@@ -87,6 +87,7 @@ wwwroot/service-worker-assets.js
 *.tfstate.backup
 .terraform/
 .terraform.lock.hcl
+*.tfplan
 terraform-outputs.json
 crash.log
 crash.*.log
@@ -117,6 +118,8 @@ appsettings.*.json
 secrets.json
 .env
 .env.local
+.credentials
+infrastructure/terraform/.credentials
 
 ## Test output
 test-output/

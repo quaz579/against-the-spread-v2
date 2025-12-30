@@ -1,3 +1,9 @@
+# Against The Spread - Terraform Configuration
+# Usage:
+#   terraform init -backend-config="key=dev.terraform.tfstate"
+#   terraform plan -var-file="dev.tfvars"
+#   terraform apply -var-file="dev.tfvars"
+
 terraform {
   required_version = ">= 1.0"
 
@@ -7,55 +13,60 @@ terraform {
       version = "~> 3.0"
     }
   }
+
+  backend "azurerm" {
+    resource_group_name  = "ats-tfstate-rg"
+    storage_account_name = "atstfstate"
+    container_name       = "tfstate"
+    # key is passed via -backend-config="key=dev.terraform.tfstate" or "key=prod.terraform.tfstate"
+  }
 }
 
 provider "azurerm" {
   features {}
 }
 
-# Variables
-variable "project_name" {
-  description = "Project name for resource naming"
-  type        = string
-  default     = "against-the-spread"
-}
-
-variable "environment" {
-  description = "Environment (dev, staging, prod)"
-  type        = string
-  default     = "prod"
-}
-
-variable "location" {
-  description = "Azure region"
-  type        = string
-  default     = "eastus"
-}
-
 # Locals
 locals {
-  resource_prefix = "${var.project_name}-${var.environment}"
-  tags = {
-    Project     = var.project_name
+  # Naming convention: {resource type}-{environment}-{region abbrev}-atsv2
+  # Region abbreviations: centralus = cus, eastus = eus, eastus2 = eus2
+  # Storage accounts: st{env}{region}atsv2 (no dashes)
+  region_abbrev = {
+    "centralus" = "cus"
+    "eastus"    = "eus"
+    "eastus2"   = "eus2"
+    "westus"    = "wus"
+    "westus2"   = "wus2"
+  }
+  region_short = lookup(local.region_abbrev, var.location, substr(var.location, 0, 3))
+  name_suffix  = "${var.environment}-${local.region_short}-atsv2"
+
+  tags = merge({
+    Project     = "against-the-spread"
     Environment = var.environment
     ManagedBy   = "Terraform"
-  }
+  }, var.extra_tags)
 }
 
+#------------------------------------------------------------------------------
 # Resource Group
+#------------------------------------------------------------------------------
 resource "azurerm_resource_group" "main" {
-  name     = "${local.resource_prefix}-rg"
+  name     = "rg-${local.name_suffix}"
   location = var.location
   tags     = local.tags
 }
 
-# Storage Account for game files and function storage
+#------------------------------------------------------------------------------
+# Storage Account
+#------------------------------------------------------------------------------
 resource "azurerm_storage_account" "main" {
-  name                     = replace("${local.resource_prefix}st", "-", "")
+  name                     = "st${var.environment}${local.region_short}atsv2"
   resource_group_name      = azurerm_resource_group.main.name
   location                 = azurerm_resource_group.main.location
   account_tier             = "Standard"
   account_replication_type = "LRS"
+  min_tls_version          = "TLS1_2"
 
   blob_properties {
     cors_rule {
@@ -70,35 +81,77 @@ resource "azurerm_storage_account" "main" {
   tags = local.tags
 }
 
-# Container for game files (lines)
 resource "azurerm_storage_container" "gamefiles" {
   name                  = "gamefiles"
   storage_account_name  = azurerm_storage_account.main.name
   container_access_type = "private"
 }
 
-# Application Insights for monitoring
+#------------------------------------------------------------------------------
+# Application Insights
+#------------------------------------------------------------------------------
 resource "azurerm_application_insights" "main" {
-  name                = "${local.resource_prefix}-ai"
+  name                = "ai-${local.name_suffix}"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   application_type    = "web"
   tags                = local.tags
+
+  lifecycle {
+    ignore_changes = [workspace_id]
+  }
 }
 
-# App Service Plan for Azure Functions
+#------------------------------------------------------------------------------
+# Azure SQL Database
+#------------------------------------------------------------------------------
+resource "azurerm_mssql_server" "main" {
+  name                         = "sql-${local.name_suffix}"
+  resource_group_name          = azurerm_resource_group.main.name
+  location                     = azurerm_resource_group.main.location
+  version                      = "12.0"
+  administrator_login          = var.sql_admin_login
+  administrator_login_password = var.sql_admin_password
+  minimum_tls_version          = "1.2"
+
+  tags = local.tags
+}
+
+resource "azurerm_mssql_database" "main" {
+  name         = "sqldb-${local.name_suffix}"
+  server_id    = azurerm_mssql_server.main.id
+  collation    = "SQL_Latin1_General_CP1_CI_AS"
+  license_type = "LicenseIncluded"
+  max_size_gb  = var.sql_max_size_gb
+  sku_name     = var.sql_sku_name
+
+  tags = local.tags
+}
+
+resource "azurerm_mssql_firewall_rule" "allow_azure_services" {
+  name             = "AllowAzureServices"
+  server_id        = azurerm_mssql_server.main.id
+  start_ip_address = "0.0.0.0"
+  end_ip_address   = "0.0.0.0"
+}
+
+#------------------------------------------------------------------------------
+# App Service Plan (Consumption)
+#------------------------------------------------------------------------------
 resource "azurerm_service_plan" "main" {
-  name                = "${local.resource_prefix}-asp"
+  name                = "asp-${local.name_suffix}"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   os_type             = "Linux"
-  sku_name            = "Y1" # Consumption plan
+  sku_name            = "Y1"
   tags                = local.tags
 }
 
+#------------------------------------------------------------------------------
 # Function App
+#------------------------------------------------------------------------------
 resource "azurerm_linux_function_app" "main" {
-  name                = "${local.resource_prefix}-func"
+  name                = "func-${local.name_suffix}"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   service_plan_id     = azurerm_service_plan.main.id
@@ -113,64 +166,32 @@ resource "azurerm_linux_function_app" "main" {
     }
 
     cors {
-      allowed_origins = ["*"] # Update in production with specific origins
+      allowed_origins = ["https://${azurerm_static_web_app.main.default_host_name}"]
     }
   }
 
   app_settings = {
-    "FUNCTIONS_WORKER_RUNTIME"       = "dotnet-isolated"
-    "APPINSIGHTS_INSTRUMENTATIONKEY" = azurerm_application_insights.main.instrumentation_key
-    "AzureWebJobsStorage"            = azurerm_storage_account.main.primary_connection_string
-    "WEBSITE_RUN_FROM_PACKAGE"       = "1"
+    "FUNCTIONS_WORKER_RUNTIME"              = "dotnet-isolated"
+    "APPINSIGHTS_INSTRUMENTATIONKEY"        = azurerm_application_insights.main.instrumentation_key
+    "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
+    "AzureWebJobsStorage"                   = azurerm_storage_account.main.primary_connection_string
+    "AZURE_STORAGE_CONNECTION_STRING"       = azurerm_storage_account.main.primary_connection_string
+    "WEBSITE_RUN_FROM_PACKAGE"              = "1"
+    "SqlConnectionString"                   = "Server=tcp:${azurerm_mssql_server.main.fully_qualified_domain_name},1433;Initial Catalog=${azurerm_mssql_database.main.name};Persist Security Info=False;User ID=${var.sql_admin_login};Password=${var.sql_admin_password};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+    "ADMIN_EMAILS"                          = var.admin_emails
   }
 
   tags = local.tags
 }
 
-# Static Web App for Blazor
+#------------------------------------------------------------------------------
+# Static Web App
+#------------------------------------------------------------------------------
 resource "azurerm_static_web_app" "main" {
-  name                = "${local.resource_prefix}-web"
-  location            = "eastus2" # Static Web Apps have limited regions
+  name                = "swa-${local.name_suffix}"
+  location            = var.static_web_app_location
   resource_group_name = azurerm_resource_group.main.name
-  sku_tier            = "Free"
-  sku_size            = "Free"
+  sku_tier            = var.static_web_app_sku_tier
+  sku_size            = var.static_web_app_sku_size
   tags                = local.tags
-}
-
-# Outputs
-output "resource_group_name" {
-  value       = azurerm_resource_group.main.name
-  description = "Resource group name"
-}
-
-output "storage_account_name" {
-  value       = azurerm_storage_account.main.name
-  description = "Storage account name for admin uploads"
-}
-
-output "storage_connection_string" {
-  value       = azurerm_storage_account.main.primary_connection_string
-  description = "Storage connection string (sensitive)"
-  sensitive   = true
-}
-
-output "function_app_name" {
-  value       = azurerm_linux_function_app.main.name
-  description = "Function app name"
-}
-
-output "function_app_url" {
-  value       = "https://${azurerm_linux_function_app.main.default_hostname}"
-  description = "Function app URL"
-}
-
-output "static_web_app_url" {
-  value       = "https://${azurerm_static_web_app.main.default_host_name}"
-  description = "Static web app URL"
-}
-
-output "static_web_app_deployment_token" {
-  value       = azurerm_static_web_app.main.api_key
-  description = "Deployment token for Static Web App"
-  sensitive   = true
 }
