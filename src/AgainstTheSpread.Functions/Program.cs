@@ -28,6 +28,9 @@ var host = new HostBuilder()
             services.AddScoped<IPickService, PickService>();
             services.AddScoped<IResultService, ResultService>();
             services.AddScoped<ILeaderboardService, LeaderboardService>();
+            services.AddScoped<IBowlGameService, BowlGameService>();
+            services.AddScoped<IBowlPickService, BowlPickService>();
+            services.AddScoped<IBowlLeaderboardService, BowlLeaderboardService>();
         }
 
         // Register application services
@@ -44,6 +47,17 @@ var host = new HostBuilder()
             var logger = sp.GetRequiredService<ILogger<StorageService>>();
             return new StorageService(connectionString, excelService, bowlExcelService, logger);
         });
+
+        // Register Sports Data Provider (optional - only if API key is configured)
+        var cfbdApiKey = Environment.GetEnvironmentVariable("CFBD_API_KEY");
+        if (!string.IsNullOrEmpty(cfbdApiKey))
+        {
+            services.AddHttpClient<ISportsDataProvider, CollegeFootballDataProvider>(client =>
+            {
+                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {cfbdApiKey}");
+                client.DefaultRequestHeaders.Add("Accept", "application/json");
+            });
+        }
     })
     .Build();
 

@@ -1,0 +1,243 @@
+name: PR Preview & E2E Tests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches:
+      - main
+
+concurrency:
+  group: pr-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  NODE_VERSION: '20'
+
+jobs:
+  # Deploy PR preview environment
+  deploy_preview:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    name: Deploy PR Preview
+    outputs:
+      preview_url: ${{ steps.get_url.outputs.preview_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          lfs: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Build and Publish Web Project
+        run: dotnet publish src/AgainstTheSpread.Web/AgainstTheSpread.Web.csproj -c Release -o publish/web
+
+      - name: Build and Publish Functions Project
+        run: dotnet publish src/AgainstTheSpread.Functions/AgainstTheSpread.Functions.csproj -c Release -o publish/api
+
+      - name: Copy staticwebapp.config.json to wwwroot
+        run: cp src/AgainstTheSpread.Web/wwwroot/staticwebapp.config.json publish/web/wwwroot/
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install SWA CLI
+        run: npm install -g @azure/static-web-apps-cli
+
+      - name: Deploy to PR Preview Environment
+        id: deploy
+        run: |
+          # Deploy to a preview environment (staging slot)
+          swa deploy ./publish/web/wwwroot \
+            --api-location ./publish/api \
+            --api-language dotnet \
+            --api-version 8.0 \
+            --deployment-token "${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DEV }}" \
+            --env "pr-${{ github.event.pull_request.number }}"
+        env:
+          SWA_CLI_DEPLOYMENT_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DEV }}
+
+      - name: Get Preview URL
+        id: get_url
+        run: |
+          # Azure SWA preview URL format: https://<unique-id>-pr<number>.<region>.azurestaticapps.net
+          # For dev SWA: blue-smoke-0b4410710, region is centralus (2)
+          # Preview URL: https://blue-smoke-0b4410710-pr${{ github.event.pull_request.number }}.2.azurestaticapps.net
+          PREVIEW_URL="https://blue-smoke-0b4410710-${{ github.event.pull_request.number }}.2.azurestaticapps.net"
+          echo "preview_url=$PREVIEW_URL" >> $GITHUB_OUTPUT
+          echo "Preview URL: $PREVIEW_URL"
+
+      - name: Comment Preview URL on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const previewUrl = '${{ steps.get_url.outputs.preview_url }}';
+            const body = `## 🚀 PR Preview Deployed
+
+            | Environment | URL |
+            |-------------|-----|
+            | Preview | [${previewUrl}](${previewUrl}) |
+
+            The preview environment will be automatically cleaned up when this PR is closed.
+
+            ---
+            *This comment will be updated with E2E test results when they complete.*`;
+
+            // Find existing preview comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+
+            const existingComment = comments.find(c =>
+              c.user.login === 'github-actions[bot]' &&
+              c.body.includes('🚀 PR Preview Deployed')
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+  # Run E2E tests against preview
+  e2e_tests:
+    needs: deploy_preview
+    runs-on: ubuntu-latest
+    name: E2E Tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Playwright dependencies
+        working-directory: tests
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Wait for preview deployment to be ready
+        run: |
+          PREVIEW_URL="${{ needs.deploy_preview.outputs.preview_url }}"
+          echo "Waiting for $PREVIEW_URL to be ready..."
+
+          # Wait up to 5 minutes for deployment to be accessible
+          for i in {1..30}; do
+            if curl -s -o /dev/null -w "%{http_code}" "$PREVIEW_URL" | grep -q "200\|301\|302"; then
+              echo "Preview is ready!"
+              exit 0
+            fi
+            echo "Attempt $i: Preview not ready yet, waiting 10 seconds..."
+            sleep 10
+          done
+
+          echo "Preview deployment failed to become ready"
+          exit 1
+
+      - name: Run Playwright E2E tests
+        working-directory: tests
+        run: npx playwright test --reporter=list,html
+        env:
+          BASE_URL: ${{ needs.deploy_preview.outputs.preview_url }}
+          CI: true
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-pr-${{ github.event.pull_request.number }}
+          path: tests/playwright-report/
+          retention-days: 7
+
+      - name: Update PR comment with E2E results
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const previewUrl = '${{ needs.deploy_preview.outputs.preview_url }}';
+            const testResult = '${{ job.status }}';
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            const statusEmoji = testResult === 'success' ? '✅' : '❌';
+            const statusText = testResult === 'success' ? 'Passed' : 'Failed';
+
+            const body = `## 🚀 PR Preview Deployed
+
+            | Environment | URL |
+            |-------------|-----|
+            | Preview | [${previewUrl}](${previewUrl}) |
+
+            ## ${statusEmoji} E2E Test Results: ${statusText}
+
+            | Test Suite | Status |
+            |------------|--------|
+            | Playwright E2E | ${statusEmoji} ${statusText} |
+
+            [View Full Test Report](${runUrl}) | [Download Artifacts](${runUrl}#artifacts)
+
+            The preview environment will be automatically cleaned up when this PR is closed.`;
+
+            // Find existing preview comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+
+            const existingComment = comments.find(c =>
+              c.user.login === 'github-actions[bot]' &&
+              c.body.includes('🚀 PR Preview Deployed')
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+  # Cleanup preview environment when PR is closed
+  cleanup_preview:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    name: Cleanup Preview
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cleanup message
+        run: |
+          # Azure SWA automatically cleans up staging environments when PRs close
+          # This job is kept for documentation and potential manual cleanup
+          echo "PR #${{ github.event.pull_request.number }} closed - Azure SWA will automatically cleanup the preview environment"
