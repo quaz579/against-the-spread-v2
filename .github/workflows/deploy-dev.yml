@@ -49,6 +49,8 @@ jobs:
         run: |
           swa deploy ./publish/web/wwwroot \
             --api-location ./publish/api \
+            --api-language dotnet \
+            --api-version 8.0 \
             --deployment-token "${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DEV }}" \
             --env production
         env:
