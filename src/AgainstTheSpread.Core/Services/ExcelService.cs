@@ -188,13 +188,23 @@ public class ExcelService : IExcelService
             if (!decimal.TryParse(lineText, out decimal line))
                 continue;
 
+            // Calculate the game date, adjusting year if provided and different from parsed date
+            var gameDate = currentGameDate ?? DateTime.UtcNow;
+            if (year.HasValue && gameDate.Year != year.Value)
+            {
+                // Adjust the year to match the provided year parameter
+                // This handles cases where Excel file has dates from previous season
+                gameDate = new DateTime(year.Value, gameDate.Month, gameDate.Day,
+                    gameDate.Hour, gameDate.Minute, gameDate.Second, gameDate.Kind);
+            }
+
             var game = new Game
             {
                 Favorite = favoriteValue,
                 Line = line,
                 VsAt = vsAt ?? "vs",
                 Underdog = underdog,
-                GameDate = currentGameDate ?? DateTime.UtcNow
+                GameDate = gameDate
             };
 
             weeklyLines.Games.Add(game);
