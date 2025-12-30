@@ -1,6 +1,6 @@
 # Deployment Notes - Against The Spread V2
 
-**Last Updated**: 2025-12-29 ~8:30 PM EST
+**Last Updated**: 2025-12-29 ~9:10 PM EST
 
 ## Current Status Summary
 
@@ -10,12 +10,18 @@
 - SWA app settings configured (AZURE_STORAGE_CONNECTION_STRING, ADMIN_EMAILS)
 - Both SWAs linked to GitHub repository
 - App builds and publishes successfully
+- **GitHub Actions deployment working** using SWA CLI directly
+- **Prod site live**: https://ashy-pebble-07e5d0b10.2.azurestaticapps.net (HTTP 200)
 
 ### What's NOT Working
-- **GitHub Actions deployment** fails with "InternalServerError" - appears to be Azure-side issue with newly created SWAs
-- **SWA CLI deployment** fails with "Cannot deploy to the function app because Function language info isn't provided" even though:
-  - `staticwebapp.config.json` has `"platform": { "apiRuntime": "dotnet-isolated:8.0" }`
-  - Explicit `--api-language dotnet-isolated --api-version 8.0` flags are provided
+- `Azure/static-web-apps-deploy@v1` GitHub Action - fails with "InternalServerError" on Terraform-created SWAs
+- SWA CLI `--api-language` flags don't work reliably (known bug in v2.0.6/2.0.7)
+
+### Solution Implemented
+Switched from `Azure/static-web-apps-deploy@v1` action to using SWA CLI (`swa deploy`) directly in GitHub Actions workflows. The CLI works when:
+1. Projects are pre-built before deployment
+2. Using `skip_app_build: true` / `skip_api_build: true` equivalent (pre-built artifacts)
+3. Deployment token is passed directly
 
 ## Azure Resources
 
@@ -53,17 +59,20 @@
 - `.credentials` - Local secrets file (gitignored)
 
 ### GitHub Workflows (`.github/workflows/`)
-- `deploy-dev.yml` - Triggers on push to `dev` branch
-- `deploy-prod.yml` - Triggers on push to `main` branch
+- `deploy-dev.yml` - Triggers on push to `dev` branch, uses SWA CLI
+- `deploy-prod.yml` - Triggers on push to `main` branch, uses SWA CLI
 - DELETED: `azure-static-web-apps-agreeable-river-0e2f38010.yml`
 
 ### Config Files
 - `/staticwebapp.config.json` (root) - Updated to include `platform.apiRuntime`
 - `/src/AgainstTheSpread.Web/wwwroot/staticwebapp.config.json` - Full config with auth
 
+### Custom Agents (`.claude/agents/`)
+- `devops-specialist.md` - GitHub Actions and CI/CD expert agent
+
 ## Deployment Commands
 
-### 1. Build and Publish
+### 1. Build and Publish (Local)
 ```bash
 cd /Users/Ben.Grossman/Code/against-the-spread-v2
 
@@ -86,20 +95,21 @@ az staticwebapp secrets list --name swa-prod-cus-atsv2 --resource-group rg-prod-
 az staticwebapp secrets list --name swa-dev-cus-atsv2 --resource-group rg-dev-cus-atsv2 --query "properties.apiKey" -o tsv > /tmp/deploy_token.txt
 ```
 
-### 3. Deploy via SWA CLI (CURRENT BLOCKER)
+### 3. Deploy via SWA CLI (Working Command)
 ```bash
-# This command is failing with "Function language info isn't provided" error
 swa deploy ./publish/web/wwwroot \
   --api-location ./publish/api \
   --deployment-token "$(cat /tmp/deploy_token.txt)" \
-  --env production \
-  --api-language dotnet-isolated \
-  --api-version 8.0
+  --env production
 ```
 
 ### 4. Reset API Key (if needed)
 ```bash
 az staticwebapp secrets reset-api-key --name swa-prod-cus-atsv2 --resource-group rg-prod-cus-atsv2
+
+# Update GitHub secret
+NEW_KEY=$(az staticwebapp secrets list --name swa-prod-cus-atsv2 --resource-group rg-prod-cus-atsv2 --query "properties.apiKey" -o tsv)
+gh secret set AZURE_STATIC_WEB_APPS_API_TOKEN_PROD --body "$NEW_KEY"
 ```
 
 ## Terraform Commands
@@ -137,12 +147,6 @@ tofu apply -var-file="prod.tfvars" \
 | `AZURE_STATIC_WEB_APPS_API_TOKEN_DEV` | Dev SWA deployment token |
 | `AZURE_STATIC_WEB_APPS_API_TOKEN_PROD` | Prod SWA deployment token |
 
-To update GitHub secrets after resetting API key:
-```bash
-NEW_KEY=$(az staticwebapp secrets list --name swa-prod-cus-atsv2 --resource-group rg-prod-cus-atsv2 --query "properties.apiKey" -o tsv)
-gh secret set AZURE_STATIC_WEB_APPS_API_TOKEN_PROD --body "$NEW_KEY"
-```
-
 ## SWA App Settings (Configured via Azure CLI)
 ```bash
 # These were already set:
@@ -151,40 +155,44 @@ az staticwebapp appsettings set --name swa-prod-cus-atsv2 --resource-group rg-pr
 ```
 
 ## Still Needed for Full Functionality
-1. **Fix SWA deployment** - Either via CLI or GitHub Actions
-2. **Google OAuth settings** - Need to configure in SWA app settings:
+1. **Google OAuth settings** - Need to configure in SWA app settings:
    - `GOOGLE_CLIENT_ID`
    - `GOOGLE_CLIENT_SECRET`
-3. **Google OAuth redirect URIs** - Add to Google Cloud Console:
+2. **Google OAuth redirect URIs** - Add to Google Cloud Console:
    - `https://blue-smoke-0b4410710.2.azurestaticapps.net/.auth/login/google/callback`
    - `https://ashy-pebble-07e5d0b10.2.azurestaticapps.net/.auth/login/google/callback`
 
 ## Troubleshooting Notes
 
-### SWA CLI "Function language info isn't provided" Error
-Even with `--api-language dotnet-isolated --api-version 8.0` flags and `platform.apiRuntime` in config, the CLI fails. Possible causes:
-1. SWA CLI version issue (currently 2.0.7)
-2. Config file format issue
-3. Azure backend not recognizing the newly created SWA
+### SWA CLI Known Issues (v2.0.6/2.0.7)
+- **`--api-language` flags don't work**: Known bug where flags aren't passed to StaticSitesClient binary
+- **Workaround**: Pre-build projects and deploy without relying on flags
+- GitHub Issues: [#980](https://github.com/Azure/static-web-apps-cli/issues/980), [#699](https://github.com/Azure/static-web-apps-cli/issues/699)
 
-### GitHub Actions "InternalServerError" Error
-The Azure/static-web-apps-deploy@v1 action fails with:
+### Azure/static-web-apps-deploy@v1 Action Issues
+- Fails with "InternalServerError" on Terraform-created SWAs
+- Even with valid token, fresh API key reset, and correct configuration
+- **Solution**: Use SWA CLI directly instead of the action
+
+### GitHub Actions Workflow Pattern (Working)
+```yaml
+- name: Setup Node.js
+  uses: actions/setup-node@v4
+  with:
+    node-version: '20'
+
+- name: Install SWA CLI
+  run: npm install -g @azure/static-web-apps-cli
+
+- name: Deploy to Azure Static Web Apps
+  run: |
+    swa deploy ./publish/web/wwwroot \
+      --api-location ./publish/api \
+      --deployment-token "${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PROD }}" \
+      --env production
+  env:
+    SWA_CLI_DEPLOYMENT_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PROD }}
 ```
-The content server has rejected the request with: InternalServerError
-Reason: An unexpected error has occurred. Please ensure your deployment token is properly set...
-```
-
-This happens even after:
-- Resetting the API key
-- Linking the SWA to GitHub repo
-- Waiting several minutes
-
-## Next Steps to Try
-1. Try deploying WITHOUT the api-location to see if just the frontend deploys
-2. Try older version of SWA CLI
-3. Try deploying through Azure Portal UI to see if that initializes the SWA
-4. Create SWA through Azure Portal (instead of Terraform) to compare behavior
-5. Check Azure status page for any ongoing issues
 
 ## Credentials Location
 - Local credentials: `infrastructure/terraform/.credentials`
