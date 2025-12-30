@@ -4,15 +4,16 @@
 
 | Phase | Status | Progress | Description |
 |-------|--------|----------|-------------|
-| 1 | Complete | 11/11 | Infrastructure Separation |
-| 2 | Not Started | 0/18 | Database Foundation |
-| 3 | Not Started | 0/22 | User Authentication & Pick Submission |
+| 1 | Complete | 19/19 | Infrastructure Separation |
+| 2 | Complete | 18/18 | Database Foundation |
+| 3 | In Progress | 14/22 | User Authentication & Pick Submission |
 | 4 | Not Started | 0/14 | Admin Results Entry |
 | 5 | Not Started | 0/16 | Leaderboard |
 | 6 | Not Started | 0/8 | Bowl Games (Future) |
 | 7 | Not Started | 0/6 | Sports Data API (Future) |
+| 8 | Not Started | 0/12 | PR Preview Environments & E2E Testing (Future) |
 
-**Overall Progress**: 11/95 tasks completed
+**Overall Progress**: 51/115 tasks completed
 
 ---
 
@@ -83,6 +84,8 @@ Convention: `{resource type}-{environment}-{region abbrev}-atsv2` (storage accou
 - `infrastructure/terraform/.credentials` - Local credentials (gitignored)
 - `.github/workflows/deploy-dev.yml` - Dev deployment workflow
 - `.github/workflows/deploy-prod.yml` - Prod deployment workflow
+- `.github/workflows/terraform-plan.yml` - Terraform plan on PRs
+- `.github/workflows/terraform-apply.yml` - Terraform apply on merge to main
 
 ### Phase 1 Success Criteria
 - [x] Dev environment deploys successfully from `dev` branch
@@ -90,22 +93,39 @@ Convention: `{resource type}-{environment}-{region abbrev}-atsv2` (storage accou
 - [x] Both environments have separate resource groups
 - [x] Azure SQL databases are provisioned in both environments
 
+### 1.6 Terraform CI/CD Automation
+- [x] **1.6.1** Add GitHub secrets for Terraform:
+  - `ARM_CLIENT_ID`, `ARM_CLIENT_SECRET`, `ARM_SUBSCRIPTION_ID`, `ARM_TENANT_ID` (Azure Service Principal)
+  - `TF_VAR_SQL_ADMIN_LOGIN`, `TF_VAR_SQL_ADMIN_PASSWORD`, `TF_VAR_ADMIN_EMAILS`
+- [x] **1.6.2** Create `.github/workflows/terraform-plan.yml` - runs `tofu plan` on PRs that modify `infrastructure/terraform/**`
+- [x] **1.6.3** Create `.github/workflows/terraform-apply.yml` - runs `tofu apply` on merge to `main` for infrastructure changes
+- [x] **1.6.4** Add PR comment with plan output using `actions/github-script`
+- [x] **1.6.5** Add manual approval gate for production applies (via GitHub environment protection)
+- [x] **1.6.6** Update `deploy-dev.yml` to depend on successful Terraform apply (use `workflow_run`)
+- [x] **1.6.7** Update `deploy-prod.yml` to depend on successful Terraform apply
+- [x] **1.6.8** Ensure deployment workflows wait for infrastructure changes before deploying app
+
+**Deployment Pipeline Order:**
+```
+Push to main → Terraform Plan/Apply → Deploy to Dev → Deploy to Prod
+```
+
 ---
 
 ## Phase 2: Database Foundation
 
 **Goal**: Add Azure SQL with EF Core Code First
-**Status**: Not Started
+**Status**: Complete
 **Prerequisites**: Phase 1 (infrastructure must exist)
 
 ### 2.1 Create Data Project
-- [ ] **2.1.1** Create new class library: `dotnet new classlib -n AgainstTheSpread.Data -o src/AgainstTheSpread.Data`
-- [ ] **2.1.2** Add project to solution: `dotnet sln add src/AgainstTheSpread.Data/AgainstTheSpread.Data.csproj`
-- [ ] **2.1.3** Add NuGet packages: `Microsoft.EntityFrameworkCore.SqlServer` (8.0.x), `Microsoft.EntityFrameworkCore.Design` (8.0.x)
-- [ ] **2.1.4** Add project reference from Functions to Data project
+- [x] **2.1.1** Create new class library: `dotnet new classlib -n AgainstTheSpread.Data -o src/AgainstTheSpread.Data`
+- [x] **2.1.2** Add project to solution: `dotnet sln add src/AgainstTheSpread.Data/AgainstTheSpread.Data.csproj`
+- [x] **2.1.3** Add NuGet packages: `Microsoft.EntityFrameworkCore.SqlServer` (8.0.x), `Microsoft.EntityFrameworkCore.Design` (8.0.x)
+- [x] **2.1.4** Add project reference from Functions to Data project
 
 ### 2.2 Entity Classes
-- [ ] **2.2.1** Create `src/AgainstTheSpread.Data/Entities/User.cs`
+- [x] **2.2.1** Create `src/AgainstTheSpread.Data/Entities/User.cs`
   ```csharp
   public class User
   {
@@ -119,9 +139,9 @@ Convention: `{resource type}-{environment}-{region abbrev}-atsv2` (storage accou
       public ICollection<Pick> Picks { get; set; } = new List<Pick>();
   }
   ```
-- [ ] **2.2.2** Create `src/AgainstTheSpread.Data/Entities/Game.cs`
+- [x] **2.2.2** Create `src/AgainstTheSpread.Data/Entities/GameEntity.cs` (named GameEntity to avoid conflict with Core.Models.Game)
   ```csharp
-  public class Game
+  public class GameEntity
   {
       public int Id { get; set; }
       public int Year { get; set; }
@@ -143,7 +163,7 @@ Convention: `{resource type}-{environment}-{region abbrev}-atsv2` (storage accou
       public bool HasResult => SpreadWinner != null || IsPush == true;
   }
   ```
-- [ ] **2.2.3** Create `src/AgainstTheSpread.Data/Entities/Pick.cs`
+- [x] **2.2.3** Create `src/AgainstTheSpread.Data/Entities/Pick.cs`
   ```csharp
   public class Pick
   {
@@ -157,24 +177,24 @@ Convention: `{resource type}-{environment}-{region abbrev}-atsv2` (storage accou
       public int Year { get; set; }
       public int Week { get; set; }
       // Navigation
-      public User User { get; set; } = null!;
-      public Game Game { get; set; } = null!;
+      public User? User { get; set; }
+      public GameEntity? Game { get; set; }
   }
   ```
 
 ### 2.3 Entity Configurations
-- [ ] **2.3.1** Create `src/AgainstTheSpread.Data/Configurations/UserConfiguration.cs` - indexes on GoogleSubjectId (unique), Email
-- [ ] **2.3.2** Create `src/AgainstTheSpread.Data/Configurations/GameConfiguration.cs` - composite index on Year+Week, unique on Year+Week+Favorite+Underdog
-- [ ] **2.3.3** Create `src/AgainstTheSpread.Data/Configurations/PickConfiguration.cs` - unique constraint on UserId+GameId, index on UserId+Year+Week
+- [x] **2.3.1** Create `src/AgainstTheSpread.Data/Configurations/UserConfiguration.cs` - indexes on GoogleSubjectId (unique), Email
+- [x] **2.3.2** Create `src/AgainstTheSpread.Data/Configurations/GameConfiguration.cs` - composite index on Year+Week, unique on Year+Week+Favorite+Underdog
+- [x] **2.3.3** Create `src/AgainstTheSpread.Data/Configurations/PickConfiguration.cs` - unique constraint on UserId+GameId, index on UserId+Year+Week
 
 ### 2.4 DbContext
-- [ ] **2.4.1** Create `src/AgainstTheSpread.Data/AtsDbContext.cs`
+- [x] **2.4.1** Create `src/AgainstTheSpread.Data/AtsDbContext.cs`
   ```csharp
   public class AtsDbContext : DbContext
   {
       public AtsDbContext(DbContextOptions<AtsDbContext> options) : base(options) { }
       public DbSet<User> Users => Set<User>();
-      public DbSet<Game> Games => Set<Game>();
+      public DbSet<GameEntity> Games => Set<GameEntity>();
       public DbSet<Pick> Picks => Set<Pick>();
       protected override void OnModelCreating(ModelBuilder modelBuilder)
       {
@@ -184,17 +204,17 @@ Convention: `{resource type}-{environment}-{region abbrev}-atsv2` (storage accou
   ```
 
 ### 2.5 Migrations
-- [ ] **2.5.1** Create initial migration: `dotnet ef migrations add InitialCreate --project src/AgainstTheSpread.Data --startup-project src/AgainstTheSpread.Functions`
-- [ ] **2.5.2** Review generated migration SQL
-- [ ] **2.5.3** Apply migration to dev database: `dotnet ef database update --project src/AgainstTheSpread.Data --startup-project src/AgainstTheSpread.Functions`
+- [x] **2.5.1** Create initial migration: `dotnet ef migrations add InitialCreate --project src/AgainstTheSpread.Data --startup-project src/AgainstTheSpread.Functions`
+- [x] **2.5.2** Review generated migration SQL
+- [x] **2.5.3** Apply migration to dev database: `dotnet ef database update --project src/AgainstTheSpread.Data --startup-project src/AgainstTheSpread.Functions`
 
 ### 2.6 DI Registration
-- [ ] **2.6.1** Update `src/AgainstTheSpread.Functions/Program.cs` - add DbContext registration with connection string from environment variable `SqlConnectionString`
-- [ ] **2.6.2** Update `src/AgainstTheSpread.Functions/local.settings.json` - add `SqlConnectionString` for local development
+- [x] **2.6.1** Update `src/AgainstTheSpread.Functions/Program.cs` - add DbContext registration with connection string from environment variable `SqlConnectionString`
+- [x] **2.6.2** Update `src/AgainstTheSpread.Functions/local.settings.json` - add `SqlConnectionString` for local development
 
 ### 2.7 Verification
-- [ ] **2.7.1** Build solution successfully: `dotnet build`
-- [ ] **2.7.2** Run existing tests to ensure no regressions: `dotnet test`
+- [x] **2.7.1** Build solution successfully: `dotnet build`
+- [x] **2.7.2** Run existing tests to ensure no regressions: `dotnet test` (265 tests pass)
 
 ### Phase 2 Key Files
 - New: `src/AgainstTheSpread.Data/AgainstTheSpread.Data.csproj`
@@ -206,59 +226,59 @@ Convention: `{resource type}-{environment}-{region abbrev}-atsv2` (storage accou
 - Modified: `AgainstTheSpread.sln`
 
 ### Phase 2 Success Criteria
-- [ ] Data project builds without errors
-- [ ] Migration applied to dev database
-- [ ] DbContext can connect and query (verify with simple test)
-- [ ] All existing tests pass
+- [x] Data project builds without errors
+- [x] Migration applied to dev database
+- [x] DbContext can connect and query (verified with InMemory provider tests)
+- [x] All existing tests pass (265 tests pass including new entity and DbContext tests)
 
 ---
 
 ## Phase 3: User Authentication & Pick Submission
 
 **Goal**: Enable authenticated users to submit picks via the app
-**Status**: Not Started
+**Status**: In Progress (Backend Complete, UI Pending)
 **Prerequisites**: Phase 2 (database must exist)
 
 ### 3.1 Auth Helper Extraction
-- [ ] **3.1.1** Create `src/AgainstTheSpread.Functions/Helpers/AuthHelper.cs` - extract auth logic from `UploadLinesFunction.cs` (lines 118-213)
-- [ ] **3.1.2** Create `UserInfo` record: `record UserInfo(string UserId, string Email, string? DisplayName)`
-- [ ] **3.1.3** Create method: `(bool IsAuthenticated, UserInfo? User, string? Error) ValidateAuth(HttpRequestData req)`
-- [ ] **3.1.4** Create method: `bool IsAdmin(UserInfo user)` - checks against ADMIN_EMAILS
-- [ ] **3.1.5** Refactor `UploadLinesFunction.cs` to use new AuthHelper
+- [x] **3.1.1** Create `src/AgainstTheSpread.Functions/Helpers/AuthHelper.cs` - extract auth logic from `UploadLinesFunction.cs` (lines 118-213)
+- [x] **3.1.2** Create `UserInfo` record: `record UserInfo(string UserId, string Email, string? DisplayName)`
+- [x] **3.1.3** Create method: `(bool IsAuthenticated, UserInfo? User, string? Error) ValidateAuth(HttpRequestData req)`
+- [x] **3.1.4** Create method: `bool IsAdmin(UserInfo user)` - checks against ADMIN_EMAILS
+- [x] **3.1.5** Refactor `UploadLinesFunction.cs` to use new AuthHelper
 
 ### 3.2 User Service
-- [ ] **3.2.1** Create `src/AgainstTheSpread.Core/Interfaces/IUserService.cs`
-- [ ] **3.2.2** Create `src/AgainstTheSpread.Data/Services/UserService.cs` implementing IUserService
-- [ ] **3.2.3** Implement `GetByGoogleSubjectIdAsync(string googleSubjectId)`
-- [ ] **3.2.4** Implement `GetOrCreateUserAsync(string googleSubjectId, string email, string displayName)`
-- [ ] **3.2.5** Implement `UpdateLastLoginAsync(Guid userId)`
-- [ ] **3.2.6** Register UserService in Functions `Program.cs`
+- [x] **3.2.1** Create `src/AgainstTheSpread.Data/Interfaces/IUserService.cs` (moved to Data project to avoid circular ref)
+- [x] **3.2.2** Create `src/AgainstTheSpread.Data/Services/UserService.cs` implementing IUserService
+- [x] **3.2.3** Implement `GetByGoogleSubjectIdAsync(string googleSubjectId)`
+- [x] **3.2.4** Implement `GetOrCreateUserAsync(string googleSubjectId, string email, string displayName)`
+- [x] **3.2.5** Implement `UpdateLastLoginAsync(Guid userId)`
+- [x] **3.2.6** Register UserService in Functions `Program.cs`
 
 ### 3.3 Game Service
-- [ ] **3.3.1** Create `src/AgainstTheSpread.Core/Interfaces/IGameService.cs`
-- [ ] **3.3.2** Create `src/AgainstTheSpread.Data/Services/GameService.cs` implementing IGameService
-- [ ] **3.3.3** Implement `SyncGamesFromLinesAsync(int year, int week, WeeklyLines lines)` - creates/updates Game records from blob data
-- [ ] **3.3.4** Implement `GetWeekGamesAsync(int year, int week)` - returns games with lock status
-- [ ] **3.3.5** Implement `IsGameLockedAsync(int gameId)` - checks GameDate vs current time
-- [ ] **3.3.6** Register GameService in Functions `Program.cs`
+- [x] **3.3.1** Create `src/AgainstTheSpread.Data/Interfaces/IGameService.cs` (moved to Data project)
+- [x] **3.3.2** Create `src/AgainstTheSpread.Data/Services/GameService.cs` implementing IGameService
+- [x] **3.3.3** Implement `SyncGamesFromLinesAsync(int year, int week, WeeklyLines lines)` - creates/updates Game records from blob data
+- [x] **3.3.4** Implement `GetWeekGamesAsync(int year, int week)` - returns games with lock status
+- [x] **3.3.5** Implement `IsGameLockedAsync(int gameId)` - checks GameDate vs current time
+- [x] **3.3.6** Register GameService in Functions `Program.cs`
 
 ### 3.4 Pick Service
-- [ ] **3.4.1** Create `src/AgainstTheSpread.Core/Interfaces/IPickService.cs`
-- [ ] **3.4.2** Create `src/AgainstTheSpread.Data/Services/PickService.cs` implementing IPickService
-- [ ] **3.4.3** Implement `SubmitPicksAsync(Guid userId, int year, int week, List<PickSubmission> picks)` with game locking validation
-- [ ] **3.4.4** Implement `GetUserPicksAsync(Guid userId, int year, int week)`
-- [ ] **3.4.5** Implement `GetUserSeasonPicksAsync(Guid userId, int year)`
-- [ ] **3.4.6** Register PickService in Functions `Program.cs`
+- [x] **3.4.1** Create `src/AgainstTheSpread.Data/Interfaces/IPickService.cs` (moved to Data project)
+- [x] **3.4.2** Create `src/AgainstTheSpread.Data/Services/PickService.cs` implementing IPickService
+- [x] **3.4.3** Implement `SubmitPicksAsync(Guid userId, int year, int week, List<PickSubmission> picks)` with game locking validation
+- [x] **3.4.4** Implement `GetUserPicksAsync(Guid userId, int year, int week)`
+- [x] **3.4.5** Implement `GetUserSeasonPicksAsync(Guid userId, int year)`
+- [x] **3.4.6** Register PickService in Functions `Program.cs`
 
 ### 3.5 New API Endpoints
-- [ ] **3.5.1** Create `src/AgainstTheSpread.Functions/UserPicksFunction.cs` with:
+- [x] **3.5.1** Create `src/AgainstTheSpread.Functions/UserPicksFunction.cs` with:
   - `POST /api/user-picks` - submit/update picks (requires auth)
   - `GET /api/user-picks?year={year}` - get user's season picks (requires auth)
   - `GET /api/user-picks/{week}?year={year}` - get user's week picks (requires auth)
-- [ ] **3.5.2** Update `staticwebapp.config.json` to protect `/api/user-picks*` routes
+- [x] **3.5.2** Update `staticwebapp.config.json` to protect `/api/user-picks*` routes
 
 ### 3.6 Modify Lines Upload to Sync Games
-- [ ] **3.6.1** Update `UploadLinesFunction.cs` - after blob upload, call `IGameService.SyncGamesFromLinesAsync()`
+- [x] **3.6.1** Update `UploadLinesFunction.cs` - after blob upload, call `IGameService.SyncGamesFromLinesAsync()`
 
 ### 3.7 Blazor Auth State
 - [ ] **3.7.1** Create `src/AgainstTheSpread.Web/Services/AuthStateService.cs` - manages user auth state client-side
@@ -273,18 +293,23 @@ Convention: `{resource type}-{environment}-{region abbrev}-atsv2` (storage accou
 - [ ] **3.8.5** Modify submit button behavior based on auth state
 
 ### Phase 3 Key Files
-- New: `src/AgainstTheSpread.Functions/Helpers/AuthHelper.cs`
-- New: `src/AgainstTheSpread.Core/Interfaces/IUserService.cs`
-- New: `src/AgainstTheSpread.Core/Interfaces/IGameService.cs`
-- New: `src/AgainstTheSpread.Core/Interfaces/IPickService.cs`
+- New: `src/AgainstTheSpread.Functions/Helpers/AuthHelper.cs` (UserInfo record + ValidateAuth + IsAdmin)
+- New: `src/AgainstTheSpread.Data/Interfaces/IUserService.cs` (moved from Core to avoid circular ref)
+- New: `src/AgainstTheSpread.Data/Interfaces/IGameService.cs` (moved from Core)
+- New: `src/AgainstTheSpread.Data/Interfaces/IPickService.cs` (moved from Core)
 - New: `src/AgainstTheSpread.Data/Services/UserService.cs`
 - New: `src/AgainstTheSpread.Data/Services/GameService.cs`
 - New: `src/AgainstTheSpread.Data/Services/PickService.cs`
 - New: `src/AgainstTheSpread.Functions/UserPicksFunction.cs`
-- New: `src/AgainstTheSpread.Web/Services/AuthStateService.cs`
-- Modified: `src/AgainstTheSpread.Functions/UploadLinesFunction.cs`
-- Modified: `src/AgainstTheSpread.Web/Pages/Picks.razor`
-- Modified: `src/AgainstTheSpread.Web/wwwroot/staticwebapp.config.json`
+- New: `src/AgainstTheSpread.Tests/Helpers/AuthHelperTests.cs` (16 tests)
+- New: `src/AgainstTheSpread.Tests/Data/Services/UserServiceTests.cs` (12 tests)
+- New: `src/AgainstTheSpread.Tests/Data/Services/GameServiceTests.cs` (14 tests)
+- New: `src/AgainstTheSpread.Tests/Data/Services/PickServiceTests.cs` (14 tests)
+- Pending: `src/AgainstTheSpread.Web/Services/AuthStateService.cs`
+- Modified: `src/AgainstTheSpread.Functions/UploadLinesFunction.cs` (uses AuthHelper + syncs games)
+- Modified: `src/AgainstTheSpread.Functions/Program.cs` (registers services)
+- Pending: `src/AgainstTheSpread.Web/Pages/Picks.razor`
+- Modified: `src/AgainstTheSpread.Web/wwwroot/staticwebapp.config.json` (protected routes)
 
 ### Phase 3 Success Criteria
 - [ ] Authenticated users can submit picks via the app
@@ -486,6 +511,47 @@ Convention: `{resource type}-{environment}-{region abbrev}-atsv2` (storage accou
 - New: `src/AgainstTheSpread.Core/Models/ExternalGame.cs`
 - New: `src/AgainstTheSpread.Core/Models/ExternalGameResult.cs`
 - New: Provider implementation (TBD based on selection)
+
+---
+
+## Phase 8: PR Preview Environments & E2E Testing (Future)
+
+**Goal**: Deploy preview environments for PRs and run Playwright E2E tests against them
+**Status**: Not Started
+**Prerequisites**: Core functionality complete (Phases 1-5)
+
+### 8.1 PR Preview Deployments
+- [ ] **8.1.1** Update `deploy-dev.yml` to deploy preview environments for PRs to `main`
+- [ ] **8.1.2** Configure SWA staging environments for PR previews (auto-created by SWA)
+- [ ] **8.1.3** Add dynamic URL detection (parse SWA deployment output for preview URL)
+
+### 8.2 E2E Testing in CI
+- [ ] **8.2.1** Create `.github/workflows/pr-e2e-tests.yml` - runs Playwright tests against PR preview URL
+- [ ] **8.2.2** Configure Playwright to use dynamic base URL from environment
+- [ ] **8.2.3** Add PR comment with preview URL and E2E test results using `actions/github-script`
+
+### 8.3 Deployment Pipeline
+- [ ] **8.3.1** Update `deploy-prod.yml` to trigger only after successful dev/preview deployment
+- [ ] **8.3.2** Add deployment status checks as required for merge
+
+**Workflow vision:**
+```
+PR to main → Deploy to Dev Preview → Run Playwright E2E → Report results on PR
+                                                              ↓
+                                              Merge to main → Deploy to Prod
+```
+
+### Phase 8 Key Files
+- Modified: `.github/workflows/deploy-dev.yml`
+- Modified: `.github/workflows/deploy-prod.yml`
+- New: `.github/workflows/pr-e2e-tests.yml`
+- Modified: `tests/playwright.config.ts`
+
+### Phase 8 Success Criteria
+- [ ] PRs automatically get preview environments
+- [ ] Playwright tests run against preview URL
+- [ ] Test results posted as PR comment
+- [ ] Prod deployment gated on successful E2E
 
 ---
 
