@@ -98,18 +98,27 @@ public class UploadLinesFunction
             _logger.LogInformation("Successfully uploaded {Count} games for week {Week}",
                 weeklyLines.Games.Count, week);
 
-            // Sync games to database if service is available
+            // Sync games to database if service is available (graceful - don't fail upload if DB sync fails)
             var gamesSynced = 0;
+            string? dbSyncWarning = null;
             if (_gameService != null)
             {
-                var gameInputs = weeklyLines.Games.Select(g => new GameSyncInput(
-                    g.Favorite,
-                    g.Underdog,
-                    g.Line,
-                    g.GameDate));
+                try
+                {
+                    var gameInputs = weeklyLines.Games.Select(g => new GameSyncInput(
+                        g.Favorite,
+                        g.Underdog,
+                        g.Line,
+                        g.GameDate));
 
-                gamesSynced = await _gameService.SyncGamesFromLinesAsync(year, week, gameInputs);
-                _logger.LogInformation("Synced {Count} games to database for week {Week}", gamesSynced, week);
+                    gamesSynced = await _gameService.SyncGamesFromLinesAsync(year, week, gameInputs);
+                    _logger.LogInformation("Synced {Count} games to database for week {Week}", gamesSynced, week);
+                }
+                catch (Exception dbEx)
+                {
+                    _logger.LogWarning(dbEx, "Failed to sync games to database for week {Week}. Upload to blob storage succeeded.", week);
+                    dbSyncWarning = "Games uploaded to storage but database sync failed. Games will still be available.";
+                }
             }
 
             var response = req.CreateResponse(HttpStatusCode.OK);
@@ -120,7 +129,8 @@ public class UploadLinesFunction
                 year = year,
                 gamesCount = weeklyLines.Games.Count,
                 gamesSynced = gamesSynced,
-                message = $"Successfully uploaded {weeklyLines.Games.Count} games for Week {week}"
+                message = $"Successfully uploaded {weeklyLines.Games.Count} games for Week {week}",
+                warning = dbSyncWarning
             });
             return response;
         }

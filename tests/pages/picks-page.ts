@@ -34,7 +34,7 @@ export class PicksPage {
 
     // Game selection elements
     this.backButton = page.getByRole('button', { name: /← Back to Week Selection/ });
-    this.downloadButton = page.getByRole('button', { name: /Generate Your Picks/ });
+    this.downloadButton = page.getByRole('button', { name: /Download Picks/ });
     this.printButton = page.getByRole('button', { name: /Print My Picks/ });
 
     // Status elements

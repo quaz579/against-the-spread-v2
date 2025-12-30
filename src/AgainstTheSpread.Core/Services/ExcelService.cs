@@ -198,6 +198,16 @@ public class ExcelService : IExcelService
                     gameDate.Hour, gameDate.Minute, gameDate.Second, gameDate.Kind);
             }
 
+            // If the game date is in the past, shift it to be in the future
+            // This ensures games from old Excel files remain selectable for testing/demo purposes
+            if (gameDate < DateTime.UtcNow)
+            {
+                // Shift to next occurrence of this day-of-week, at least 1 day in the future
+                var daysToAdd = 7 - (int)(DateTime.UtcNow - gameDate).TotalDays % 7;
+                if (daysToAdd <= 0) daysToAdd = 7;
+                gameDate = DateTime.UtcNow.AddDays(daysToAdd).Date.AddHours(gameDate.Hour).AddMinutes(gameDate.Minute);
+            }
+
             var game = new Game
             {
                 Favorite = favoriteValue,

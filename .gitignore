@@ -120,6 +120,8 @@ secrets.json
 .env.local
 .credentials
 infrastructure/terraform/.credentials
+.claude/mcp.json
+.mcp.json
 
 ## Test output
 test-output/
