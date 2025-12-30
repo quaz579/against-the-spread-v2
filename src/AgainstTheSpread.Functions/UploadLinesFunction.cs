@@ -45,9 +45,10 @@ public class UploadLinesFunction
         try
         {
             // Check authentication and authorization
-            if (!IsAuthorized(req, out var errorResponse))
+            var authResult = await ValidateAdminAccessAsync(req);
+            if (authResult.ErrorResponse != null)
             {
-                return errorResponse;
+                return authResult.ErrorResponse;
             }
 
             // Get week and year from query parameters
@@ -133,12 +134,10 @@ public class UploadLinesFunction
     }
 
     /// <summary>
-    /// Check if the request is from an authorized admin user using AuthHelper.
+    /// Validates admin access using AuthHelper.
     /// </summary>
-    private bool IsAuthorized(HttpRequestData req, out HttpResponseData errorResponse)
+    private async Task<(UserInfo? UserInfo, HttpResponseData? ErrorResponse)> ValidateAdminAccessAsync(HttpRequestData req)
     {
-        errorResponse = null!;
-
         // Convert headers to dictionary for AuthHelper
         var headers = req.Headers.ToDictionary(
             h => h.Key,
@@ -152,20 +151,20 @@ public class UploadLinesFunction
             var statusCode = authResult.Error == "Authentication required"
                 ? HttpStatusCode.Unauthorized
                 : HttpStatusCode.Forbidden;
-            errorResponse = req.CreateResponse(statusCode);
-            errorResponse.WriteStringAsync(authResult.Error ?? "Authentication failed").Wait();
-            return false;
+            var response = req.CreateResponse(statusCode);
+            await response.WriteStringAsync(authResult.Error ?? "Authentication failed");
+            return (null, response);
         }
 
         // Check if user is admin
         if (!_authHelper.IsAdmin(authResult.User))
         {
-            errorResponse = req.CreateResponse(HttpStatusCode.Forbidden);
-            errorResponse.WriteStringAsync("Access denied. Admin privileges required.").Wait();
-            return false;
+            var response = req.CreateResponse(HttpStatusCode.Forbidden);
+            await response.WriteStringAsync("Access denied. Admin privileges required.");
+            return (null, response);
         }
 
         _logger.LogInformation("Admin access granted for {Email}", authResult.User.Email);
-        return true;
+        return (authResult.User, null);
     }
 }

@@ -60,6 +60,9 @@ test.describe('Complete User Flow', () => {
 
       // Upload lines file through admin UI
       await adminPage.uploadLinesFile(linesFile, TEST_WEEK_11, TEST_YEAR);
+
+      // Logout to test the unauthenticated picks flow
+      await adminPage.logout();
     });
 
     // === STEP 2: Navigate to picks page ===
@@ -141,6 +144,9 @@ test.describe('Complete User Flow', () => {
 
       // Upload lines file through admin UI
       await adminPage.uploadLinesFile(linesFile, TEST_WEEK_12, TEST_YEAR);
+
+      // Logout to test the unauthenticated picks flow
+      await adminPage.logout();
     });
 
     // === STEP 2: Navigate to picks page ===

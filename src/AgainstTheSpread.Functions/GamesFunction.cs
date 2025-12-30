@@ -43,10 +43,10 @@ public class GamesFunction
             }
 
             // Get year from query string, default to current year
-            var yearString = req.Query["year"];
-            var year = string.IsNullOrEmpty(yearString)
-                ? DateTime.UtcNow.Year
-                : int.Parse(yearString!);
+            if (!int.TryParse(req.Query["year"], out int year))
+            {
+                year = DateTime.UtcNow.Year;
+            }
 
             var games = await _gameService.GetWeekGamesAsync(year, week);
 

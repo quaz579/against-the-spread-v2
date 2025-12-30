@@ -45,7 +45,7 @@ public class ResultsFunction
         try
         {
             // Validate admin access
-            var authResult = ValidateAdminAccess(req);
+            var authResult = await ValidateAdminAccessAsync(req);
             if (authResult.ErrorResponse != null)
             {
                 return authResult.ErrorResponse;
@@ -54,7 +54,7 @@ public class ResultsFunction
             // Get year from query string
             if (!int.TryParse(req.Query["year"], out int year))
             {
-                year = DateTime.Now.Year;
+                year = DateTime.UtcNow.Year;
             }
 
             // Get or create admin user
@@ -178,7 +178,7 @@ public class ResultsFunction
         try
         {
             // Validate admin access
-            var authResult = ValidateAdminAccess(req);
+            var authResult = await ValidateAdminAccessAsync(req);
             if (authResult.ErrorResponse != null)
             {
                 return authResult.ErrorResponse;
@@ -249,7 +249,7 @@ public class ResultsFunction
 
     #region Helper Methods
 
-    private (UserInfo? UserInfo, HttpResponseData? ErrorResponse) ValidateAdminAccess(HttpRequestData req)
+    private async Task<(UserInfo? UserInfo, HttpResponseData? ErrorResponse)> ValidateAdminAccessAsync(HttpRequestData req)
     {
         var headers = req.Headers.ToDictionary(
             h => h.Key,
@@ -262,7 +262,7 @@ public class ResultsFunction
         if (!authResult.IsAuthenticated || authResult.User == null)
         {
             var response = req.CreateResponse(HttpStatusCode.Unauthorized);
-            response.WriteStringAsync(authResult.Error ?? "Authentication required").Wait();
+            await response.WriteStringAsync(authResult.Error ?? "Authentication required");
             return (null, response);
         }
 
@@ -270,7 +270,7 @@ public class ResultsFunction
         if (!_authHelper.IsAdmin(authResult.User))
         {
             var response = req.CreateResponse(HttpStatusCode.Forbidden);
-            response.WriteStringAsync("Admin access required").Wait();
+            await response.WriteStringAsync("Admin access required");
             return (null, response);
         }
 

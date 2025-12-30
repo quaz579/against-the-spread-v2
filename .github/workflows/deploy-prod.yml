@@ -6,10 +6,6 @@ on:
       - main
     paths-ignore:
       - 'infrastructure/terraform/**'
-  pull_request:
-    types: [opened, synchronize, reopened, closed]
-    branches:
-      - main
   # Run after successful terraform apply when infrastructure changes
   workflow_run:
     workflows: ["Terraform Apply"]
@@ -31,11 +27,10 @@ env:
 
 jobs:
   build_and_deploy:
-    # Run on: push to main (non-terraform), PR events (not closed), manual dispatch, workflow_call,
+    # Run on: push to main (non-terraform), manual dispatch, workflow_call,
     # or after successful terraform apply (workflow_run)
     if: |
       (github.event_name == 'push') ||
-      (github.event_name == 'pull_request' && github.event.action != 'closed') ||
       (github.event_name == 'workflow_dispatch') ||
       (github.event_name == 'workflow_call') ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
@@ -84,23 +79,3 @@ jobs:
             --env production
         env:
           SWA_CLI_DEPLOYMENT_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PROD }}
-
-  close_pull_request:
-    if: github.event_name == 'pull_request' && github.event.action == 'closed'
-    runs-on: ubuntu-latest
-    name: Close Pull Request
-    steps:
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install SWA CLI
-        run: npm install -g @azure/static-web-apps-cli
-
-      - name: Close Pull Request Environment
-        run: |
-          # SWA CLI doesn't have a direct "close" action like the Azure Action
-          # The staging environment is automatically cleaned up by Azure SWA
-          # when the PR is closed. This job is kept for potential future cleanup tasks.
-          echo "PR closed - Azure Static Web Apps will automatically clean up the staging environment"

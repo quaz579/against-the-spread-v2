@@ -1,4 +1,5 @@
 using AgainstTheSpread.Data.Interfaces;
+using AgainstTheSpread.Functions.Helpers;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
@@ -13,16 +14,23 @@ namespace AgainstTheSpread.Functions;
 public class LeaderboardFunction
 {
     private readonly ILeaderboardService _leaderboardService;
+    private readonly IUserService _userService;
     private readonly ILogger<LeaderboardFunction> _logger;
+    private readonly AuthHelper _authHelper;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    public LeaderboardFunction(ILeaderboardService leaderboardService, ILogger<LeaderboardFunction> logger)
+    public LeaderboardFunction(
+        ILeaderboardService leaderboardService,
+        IUserService userService,
+        ILogger<LeaderboardFunction> logger)
     {
         _leaderboardService = leaderboardService;
+        _userService = userService;
         _logger = logger;
+        _authHelper = new AuthHelper(logger);
     }
 
     /// <summary>
@@ -36,8 +44,10 @@ public class LeaderboardFunction
     {
         // Parse year from query string
         var query = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
-        var yearStr = query["year"];
-        var year = string.IsNullOrEmpty(yearStr) ? DateTime.Now.Year : int.Parse(yearStr);
+        if (!int.TryParse(query["year"], out int year))
+        {
+            year = DateTime.UtcNow.Year;
+        }
 
         _logger.LogInformation("Getting weekly leaderboard for year {Year}, week {Week}", year, week);
 
@@ -76,8 +86,10 @@ public class LeaderboardFunction
     {
         // Parse year from query string
         var query = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
-        var yearStr = query["year"];
-        var year = string.IsNullOrEmpty(yearStr) ? DateTime.Now.Year : int.Parse(yearStr);
+        if (!int.TryParse(query["year"], out int year))
+        {
+            year = DateTime.UtcNow.Year;
+        }
 
         _logger.LogInformation("Getting season leaderboard for year {Year}", year);
 
@@ -117,8 +129,10 @@ public class LeaderboardFunction
     {
         // Parse year from query string
         var query = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
-        var yearStr = query["year"];
-        var year = string.IsNullOrEmpty(yearStr) ? DateTime.Now.Year : int.Parse(yearStr);
+        if (!int.TryParse(query["year"], out int year))
+        {
+            year = DateTime.UtcNow.Year;
+        }
 
         if (!Guid.TryParse(userId, out var userGuid))
         {
@@ -184,36 +198,62 @@ public class LeaderboardFunction
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "leaderboard/me")] HttpRequestData req,
         CancellationToken cancellationToken)
     {
-        // Get user from SWA authentication header
-        var clientPrincipalHeader = req.Headers.TryGetValues("X-MS-CLIENT-PRINCIPAL-ID", out var principalValues)
-            ? principalValues.FirstOrDefault()
-            : null;
+        // Validate authentication using AuthHelper
+        var headers = req.Headers.ToDictionary(
+            h => h.Key,
+            h => h.Value,
+            StringComparer.OrdinalIgnoreCase);
 
-        if (string.IsNullOrEmpty(clientPrincipalHeader) || !Guid.TryParse(clientPrincipalHeader, out var userId))
+        var authResult = _authHelper.ValidateAuth(headers);
+        if (!authResult.IsAuthenticated || authResult.User == null)
         {
             var unauthorized = req.CreateResponse(HttpStatusCode.Unauthorized);
-            await unauthorized.WriteStringAsync("Authentication required");
+            await unauthorized.WriteStringAsync(authResult.Error ?? "Authentication required");
             return unauthorized;
         }
 
-        // Parse year from query string
-        var query = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
-        var yearStr = query["year"];
-        var year = string.IsNullOrEmpty(yearStr) ? DateTime.Now.Year : int.Parse(yearStr);
-
-        _logger.LogInformation("Getting season history for authenticated user {UserId}, year {Year}", userId, year);
-
-        var history = await _leaderboardService.GetUserSeasonHistoryAsync(userId, year, cancellationToken);
-
-        if (history == null)
+        // Look up the user in the database by their Google Subject ID
+        var user = await _userService.GetByGoogleSubjectIdAsync(authResult.User.UserId);
+        if (user == null)
         {
-            // Return empty history for new user
+            // User hasn't made any picks yet - return empty history
+            var query = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
+            if (!int.TryParse(query["year"], out int emptyYear))
+            {
+                emptyYear = DateTime.UtcNow.Year;
+            }
+
             var emptyResponse = req.CreateResponse(HttpStatusCode.OK);
             emptyResponse.Headers.Add("Content-Type", "application/json");
             await emptyResponse.WriteStringAsync(JsonSerializer.Serialize(new UserSeasonHistoryDto
             {
-                UserId = userId,
-                DisplayName = "Unknown",
+                UserId = Guid.Empty,
+                DisplayName = authResult.User.DisplayName ?? authResult.User.Email,
+                Year = emptyYear
+            }, JsonOptions));
+            return emptyResponse;
+        }
+
+        // Parse year from query string
+        var yearQuery = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
+        if (!int.TryParse(yearQuery["year"], out int year))
+        {
+            year = DateTime.UtcNow.Year;
+        }
+
+        _logger.LogInformation("Getting season history for authenticated user {UserId}, year {Year}", user.Id, year);
+
+        var history = await _leaderboardService.GetUserSeasonHistoryAsync(user.Id, year, cancellationToken);
+
+        if (history == null)
+        {
+            // Return empty history for user with no picks this season
+            var emptyResponse = req.CreateResponse(HttpStatusCode.OK);
+            emptyResponse.Headers.Add("Content-Type", "application/json");
+            await emptyResponse.WriteStringAsync(JsonSerializer.Serialize(new UserSeasonHistoryDto
+            {
+                UserId = user.Id,
+                DisplayName = user.DisplayName,
                 Year = year
             }, JsonOptions));
             return emptyResponse;

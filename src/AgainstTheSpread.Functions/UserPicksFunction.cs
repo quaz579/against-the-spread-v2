@@ -43,7 +43,7 @@ public class UserPicksFunction
         try
         {
             // Validate authentication
-            var authResult = ValidateAndGetUser(req);
+            var authResult = await ValidateAndGetUserAsync(req);
             if (authResult.ErrorResponse != null)
             {
                 return authResult.ErrorResponse;
@@ -123,7 +123,7 @@ public class UserPicksFunction
         try
         {
             // Validate authentication
-            var authResult = ValidateAndGetUser(req);
+            var authResult = await ValidateAndGetUserAsync(req);
             if (authResult.ErrorResponse != null)
             {
                 return authResult.ErrorResponse;
@@ -132,7 +132,7 @@ public class UserPicksFunction
             // Get year from query string
             if (!int.TryParse(req.Query["year"], out int year))
             {
-                year = DateTime.Now.Year;
+                year = DateTime.UtcNow.Year;
             }
 
             // Get user from database
@@ -193,7 +193,7 @@ public class UserPicksFunction
         try
         {
             // Validate authentication
-            var authResult = ValidateAndGetUser(req);
+            var authResult = await ValidateAndGetUserAsync(req);
             if (authResult.ErrorResponse != null)
             {
                 return authResult.ErrorResponse;
@@ -202,7 +202,7 @@ public class UserPicksFunction
             // Get year from query string
             if (!int.TryParse(req.Query["year"], out int year))
             {
-                year = DateTime.Now.Year;
+                year = DateTime.UtcNow.Year;
             }
 
             // Get user from database
@@ -262,7 +262,7 @@ public class UserPicksFunction
 
     #region Helper Methods
 
-    private (UserInfo? UserInfo, HttpResponseData? ErrorResponse) ValidateAndGetUser(HttpRequestData req)
+    private async Task<(UserInfo? UserInfo, HttpResponseData? ErrorResponse)> ValidateAndGetUserAsync(HttpRequestData req)
     {
         var headers = req.Headers.ToDictionary(
             h => h.Key,
@@ -277,7 +277,7 @@ public class UserPicksFunction
                 : HttpStatusCode.Forbidden;
 
             var response = req.CreateResponse(statusCode);
-            response.WriteStringAsync(authResult.Error ?? "Authentication failed").Wait();
+            await response.WriteStringAsync(authResult.Error ?? "Authentication failed");
             return (null, response);
         }
 
