@@ -508,4 +508,142 @@ public class ApiService
         public bool Success { get; set; }
         public string Message { get; set; } = string.Empty;
     }
+
+    // ============ Leaderboard Methods ============
+
+    /// <summary>
+    /// Get weekly leaderboard for a specific week
+    /// </summary>
+    public async Task<WeeklyLeaderboardResponse?> GetWeeklyLeaderboardAsync(int week, int year)
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<WeeklyLeaderboardResponse>($"api/leaderboard/week/{week}?year={year}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get weekly leaderboard for week {Week}, year {Year}", week, year);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Get season leaderboard
+    /// </summary>
+    public async Task<SeasonLeaderboardResponse?> GetSeasonLeaderboardAsync(int year)
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<SeasonLeaderboardResponse>($"api/leaderboard/season?year={year}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get season leaderboard for year {Year}", year);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Get a specific user's season pick history
+    /// </summary>
+    public async Task<UserSeasonHistoryDto?> GetUserSeasonHistoryAsync(Guid userId, int year)
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<UserSeasonHistoryDto>($"api/leaderboard/user/{userId}?year={year}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get user season history for user {UserId}, year {Year}", userId, year);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Get authenticated user's own season pick history
+    /// </summary>
+    public async Task<UserSeasonHistoryDto?> GetMySeasonHistoryAsync(int year)
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<UserSeasonHistoryDto>($"api/leaderboard/me?year={year}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get my season history for year {Year}", year);
+            return null;
+        }
+    }
+
+    // DTOs for leaderboard
+    public class WeeklyLeaderboardResponse
+    {
+        public int Year { get; set; }
+        public int Week { get; set; }
+        public List<WeeklyLeaderboardEntryDto> Entries { get; set; } = new();
+    }
+
+    public class WeeklyLeaderboardEntryDto
+    {
+        public Guid UserId { get; set; }
+        public string DisplayName { get; set; } = string.Empty;
+        public int Week { get; set; }
+        public decimal Wins { get; set; }
+        public decimal Losses { get; set; }
+        public int Pushes { get; set; }
+        public decimal WinPercentage { get; set; }
+    }
+
+    public class SeasonLeaderboardResponse
+    {
+        public int Year { get; set; }
+        public List<SeasonLeaderboardEntryDto> Entries { get; set; } = new();
+    }
+
+    public class SeasonLeaderboardEntryDto
+    {
+        public Guid UserId { get; set; }
+        public string DisplayName { get; set; } = string.Empty;
+        public decimal TotalWins { get; set; }
+        public decimal TotalLosses { get; set; }
+        public int TotalPushes { get; set; }
+        public decimal WinPercentage { get; set; }
+        public int WeeksPlayed { get; set; }
+        public int PerfectWeeks { get; set; }
+    }
+
+    public class UserSeasonHistoryDto
+    {
+        public Guid UserId { get; set; }
+        public string DisplayName { get; set; } = string.Empty;
+        public int Year { get; set; }
+        public decimal TotalWins { get; set; }
+        public decimal TotalLosses { get; set; }
+        public int TotalPushes { get; set; }
+        public decimal WinPercentage { get; set; }
+        public List<UserWeekHistoryDto> Weeks { get; set; } = new();
+    }
+
+    public class UserWeekHistoryDto
+    {
+        public int Week { get; set; }
+        public decimal Wins { get; set; }
+        public decimal Losses { get; set; }
+        public int Pushes { get; set; }
+        public bool IsPerfect { get; set; }
+        public List<UserPickHistoryDto> Picks { get; set; } = new();
+    }
+
+    public class UserPickHistoryDto
+    {
+        public int GameId { get; set; }
+        public string Favorite { get; set; } = string.Empty;
+        public string Underdog { get; set; } = string.Empty;
+        public decimal Line { get; set; }
+        public string SelectedTeam { get; set; } = string.Empty;
+        public string? SpreadWinner { get; set; }
+        public bool? IsPush { get; set; }
+        public bool? IsWin { get; set; }
+        public bool HasResult { get; set; }
+    }
 }

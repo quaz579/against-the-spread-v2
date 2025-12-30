@@ -8,12 +8,12 @@
 | 2 | Complete | 18/18 | Database Foundation |
 | 3 | Complete | 22/22 | User Authentication & Pick Submission |
 | 4 | Complete | 14/14 | Admin Results Entry |
-| 5 | Not Started | 0/16 | Leaderboard |
+| 5 | Complete | 16/16 | Leaderboard |
 | 6 | Not Started | 0/8 | Bowl Games (Future) |
 | 7 | Not Started | 0/6 | Sports Data API (Future) |
 | 8 | Not Started | 0/12 | PR Preview Environments & E2E Testing (Future) |
 
-**Overall Progress**: 73/115 tasks completed
+**Overall Progress**: 89/115 tasks completed
 
 ---
 
@@ -383,76 +383,71 @@ Push to main → Terraform Plan/Apply → Deploy to Dev → Deploy to Prod
 ## Phase 5: Leaderboard
 
 **Goal**: Display weekly and season standings
-**Status**: Not Started
+**Status**: Complete
 **Prerequisites**: Phase 4 (results must be enterable)
 
 ### 5.1 Leaderboard Service
-- [ ] **5.1.1** Create `src/AgainstTheSpread.Core/Interfaces/ILeaderboardService.cs`
-- [ ] **5.1.2** Create `src/AgainstTheSpread.Data/Services/LeaderboardService.cs` implementing ILeaderboardService
-- [ ] **5.1.3** Implement `GetWeeklyLeaderboardAsync(int year, int week)` - returns entries sorted by wins
-- [ ] **5.1.4** Implement `GetSeasonLeaderboardAsync(int year)` - aggregates all weeks
-- [ ] **5.1.5** Register LeaderboardService in Functions `Program.cs`
+- [x] **5.1.1** Create `src/AgainstTheSpread.Data/Interfaces/ILeaderboardService.cs` (interface and DTOs in same file)
+- [x] **5.1.2** Create `src/AgainstTheSpread.Data/Services/LeaderboardService.cs` implementing ILeaderboardService
+- [x] **5.1.3** Implement `GetWeeklyLeaderboardAsync(int year, int week)` - returns entries sorted by wins
+- [x] **5.1.4** Implement `GetSeasonLeaderboardAsync(int year)` - aggregates all weeks
+- [x] **5.1.5** Implement `GetUserSeasonHistoryAsync(Guid userId, int year)` - user pick history
+- [x] **5.1.6** Register LeaderboardService in Functions `Program.cs`
 
-### 5.2 Leaderboard DTOs
-- [ ] **5.2.1** Create `src/AgainstTheSpread.Core/Models/WeeklyLeaderboardEntry.cs`
-  ```csharp
-  public record WeeklyLeaderboardEntry(
-      Guid UserId, string DisplayName, int Week,
-      decimal Wins, decimal Losses, int Pushes, decimal WinPercentage);
-  ```
-- [ ] **5.2.2** Create `src/AgainstTheSpread.Core/Models/SeasonLeaderboardEntry.cs`
-  ```csharp
-  public record SeasonLeaderboardEntry(
-      Guid UserId, string DisplayName,
-      decimal TotalWins, decimal TotalLosses, int TotalPushes,
-      decimal WinPercentage, int WeeksPlayed, int PerfectWeeks);
-  ```
-
-### 5.3 New API Endpoints
-- [ ] **5.3.1** Create `src/AgainstTheSpread.Functions/LeaderboardFunction.cs` with:
-  - `GET /api/leaderboard?year={year}` - season standings
+### 5.2 New API Endpoints
+- [x] **5.2.1** Create `src/AgainstTheSpread.Functions/LeaderboardFunction.cs` with:
+  - `GET /api/leaderboard/season?year={year}` - season standings
   - `GET /api/leaderboard/week/{week}?year={year}` - weekly standings
+  - `GET /api/leaderboard/user/{userId}?year={year}` - user pick history
+  - `GET /api/leaderboard/me?year={year}` - authenticated user's own history
 
-### 5.4 ApiService Extensions
-- [ ] **5.4.1** Add `GetSeasonLeaderboardAsync(int year)` to ApiService
-- [ ] **5.4.2** Add `GetWeeklyLeaderboardAsync(int year, int week)` to ApiService
+### 5.3 ApiService Extensions
+- [x] **5.3.1** Add `GetSeasonLeaderboardAsync(int year)` to ApiService
+- [x] **5.3.2** Add `GetWeeklyLeaderboardAsync(int year, int week)` to ApiService
+- [x] **5.3.3** Add `GetUserSeasonHistoryAsync(Guid userId, int year)` to ApiService
+- [x] **5.3.4** Add `GetMySeasonHistoryAsync(int year)` to ApiService
 
-### 5.5 Leaderboard.razor Page
-- [ ] **5.5.1** Create `src/AgainstTheSpread.Web/Pages/Leaderboard.razor`
-- [ ] **5.5.2** Add year selector
-- [ ] **5.5.3** Display season standings table (sortable)
-- [ ] **5.5.4** Add weekly breakdown (collapsible sections per week)
-- [ ] **5.5.5** Highlight "6/6 perfect" weeks
-- [ ] **5.5.6** Add user highlight for logged-in user's row
+### 5.4 Leaderboard.razor Page
+- [x] **5.4.1** Create `src/AgainstTheSpread.Web/Pages/Leaderboard.razor`
+- [x] **5.4.2** Add year and view (season/weekly) selectors
+- [x] **5.4.3** Display season standings table with ranking badges
+- [x] **5.4.4** Display weekly standings with PERFECT week badges
+- [x] **5.4.5** Link player names to user history pages
 
-### 5.6 MyPicks.razor Page
-- [ ] **5.6.1** Create `src/AgainstTheSpread.Web/Pages/MyPicks.razor` (requires auth)
-- [ ] **5.6.2** Display user's pick history by week
-- [ ] **5.6.3** Show status per week: submitted, locked, graded
-- [ ] **5.6.4** Show score breakdown per week
-- [ ] **5.6.5** Link to edit picks for unlocked weeks
+### 5.5 User History and MyPicks Pages
+- [x] **5.5.1** Create `src/AgainstTheSpread.Web/Pages/UserHistory.razor` - view any user's history
+- [x] **5.5.2** Create `src/AgainstTheSpread.Web/Pages/MyPicks.razor` (requires auth)
+- [x] **5.5.3** Display user's pick history by week with collapsible cards
+- [x] **5.5.4** Show WIN/LOSS/PUSH badges for each pick
+- [x] **5.5.5** Show perfect week indicators
 
-### 5.7 Navigation Updates
-- [ ] **5.7.1** Add "Leaderboard" link to NavMenu.razor (public)
-- [ ] **5.7.2** Add "My Picks" link to NavMenu.razor (show only when authenticated)
+### 5.6 Navigation Updates
+- [x] **5.6.1** Add "Leaderboard" link to NavMenu.razor (public)
+- [x] **5.6.2** Add "My Picks" link to NavMenu.razor
+
+### 5.7 Testing
+- [x] **5.7.1** Create `src/AgainstTheSpread.Tests/Data/Services/LeaderboardServiceTests.cs` (14 tests)
 
 ### Phase 5 Key Files
-- New: `src/AgainstTheSpread.Core/Interfaces/ILeaderboardService.cs`
+- New: `src/AgainstTheSpread.Data/Interfaces/ILeaderboardService.cs` (includes DTOs)
 - New: `src/AgainstTheSpread.Data/Services/LeaderboardService.cs`
-- New: `src/AgainstTheSpread.Core/Models/WeeklyLeaderboardEntry.cs`
-- New: `src/AgainstTheSpread.Core/Models/SeasonLeaderboardEntry.cs`
 - New: `src/AgainstTheSpread.Functions/LeaderboardFunction.cs`
 - New: `src/AgainstTheSpread.Web/Pages/Leaderboard.razor`
+- New: `src/AgainstTheSpread.Web/Pages/UserHistory.razor`
 - New: `src/AgainstTheSpread.Web/Pages/MyPicks.razor`
+- New: `src/AgainstTheSpread.Tests/Data/Services/LeaderboardServiceTests.cs`
 - Modified: `src/AgainstTheSpread.Web/Services/ApiService.cs`
 - Modified: `src/AgainstTheSpread.Web/Layout/NavMenu.razor`
+- Modified: `src/AgainstTheSpread.Functions/Program.cs`
 
 ### Phase 5 Success Criteria
-- [ ] Leaderboard page displays season standings
-- [ ] Weekly breakdown shows correct win/loss counts
-- [ ] Scoring: 1 point per win, 0.5 per push
-- [ ] My Picks page shows user's history (auth required)
-- [ ] Navigation links work correctly
+- [x] Leaderboard page displays season standings
+- [x] Weekly breakdown shows correct win/loss counts
+- [x] Scoring: 1 point per win, 0.5 per push
+- [x] My Picks page shows user's history (auth required)
+- [x] User history page accessible from leaderboard
+- [x] Navigation links work correctly
+- [x] 14 unit tests for LeaderboardService all passing
 
 ---
 

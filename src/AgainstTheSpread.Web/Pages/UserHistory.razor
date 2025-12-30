@@ -1,0 +1,232 @@
+@page "/leaderboard/user/{UserId}"
+@using AgainstTheSpread.Web.Services
+@inject ApiService ApiService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Player History - Against The Spread</PageTitle>
+
+<div class="container">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/leaderboard">Leaderboard</a></li>
+            <li class="breadcrumb-item active" aria-current="page">@(userHistory?.DisplayName ?? "Player")</li>
+        </ol>
+    </nav>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (errorMessage != null)
+    {
+        <div class="alert alert-danger" role="alert">
+            @errorMessage
+        </div>
+    }
+    else if (userHistory != null)
+    {
+        <div class="row mb-4">
+            <div class="col">
+                <h1>@userHistory.DisplayName</h1>
+                <p class="text-muted">@userHistory.Year Season</p>
+            </div>
+            <div class="col-auto">
+                <select class="form-select" @bind="selectedYear" @bind:after="LoadUserHistory">
+                    @foreach (var year in availableYears)
+                    {
+                        <option value="@year">@year</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <!-- Season Summary -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-bg-success">
+                    <div class="card-body text-center">
+                        <h3 class="card-title mb-0">@userHistory.TotalWins</h3>
+                        <p class="card-text mb-0">Wins</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-bg-danger">
+                    <div class="card-body text-center">
+                        <h3 class="card-title mb-0">@userHistory.TotalLosses</h3>
+                        <p class="card-text mb-0">Losses</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-bg-secondary">
+                    <div class="card-body text-center">
+                        <h3 class="card-title mb-0">@userHistory.TotalPushes</h3>
+                        <p class="card-text mb-0">Pushes</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-bg-primary">
+                    <div class="card-body text-center">
+                        <h3 class="card-title mb-0">@userHistory.WinPercentage%</h3>
+                        <p class="card-text mb-0">Win Rate</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Week by Week Results -->
+        @if (userHistory.Weeks?.Any() == true)
+        {
+            <h2>Week by Week</h2>
+
+            @foreach (var week in userHistory.Weeks.OrderByDescending(w => w.Week))
+            {
+                <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center @(week.IsPerfect ? "bg-success text-white" : "")">
+                        <span>
+                            <strong>Week @week.Week</strong>
+                            @if (week.IsPerfect)
+                            {
+                                <span class="badge bg-warning text-dark ms-2">PERFECT WEEK</span>
+                            }
+                        </span>
+                        <span>
+                            <span class="text-success fw-bold">@week.Wins W</span> -
+                            <span class="text-danger">@week.Losses L</span>
+                            @if (week.Pushes > 0)
+                            {
+                                <text> - </text><span class="text-muted">@week.Pushes P</span>
+                            }
+                        </span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Matchup</th>
+                                        <th class="text-center">Line</th>
+                                        <th class="text-center">Pick</th>
+                                        <th class="text-center">Result</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var pick in week.Picks)
+                                    {
+                                        <tr class="@GetPickRowClass(pick)">
+                                            <td>@pick.Favorite vs @pick.Underdog</td>
+                                            <td class="text-center">@FormatLine(pick.Line)</td>
+                                            <td class="text-center fw-bold">@pick.SelectedTeam</td>
+                                            <td class="text-center">
+                                                @if (!pick.HasResult)
+                                                {
+                                                    <span class="badge bg-secondary">Pending</span>
+                                                }
+                                                else if (pick.IsPush == true)
+                                                {
+                                                    <span class="badge bg-secondary">PUSH</span>
+                                                }
+                                                else if (pick.IsWin == true)
+                                                {
+                                                    <span class="badge bg-success">WIN</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-danger">LOSS</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="alert alert-info">
+                No picks recorded for this player in @userHistory.Year.
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string UserId { get; set; } = string.Empty;
+
+    private int selectedYear = DateTime.Now.Year;
+    private List<int> availableYears = new();
+    private bool isLoading = true;
+    private string? errorMessage;
+
+    private ApiService.UserSeasonHistoryDto? userHistory;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Parse year from query string if provided
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        var queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var yearStr = queryParams["year"];
+        if (!string.IsNullOrEmpty(yearStr) && int.TryParse(yearStr, out var year))
+        {
+            selectedYear = year;
+        }
+
+        // Set up available years
+        var currentYear = DateTime.Now.Year;
+        availableYears = Enumerable.Range(currentYear - 2, 3).Reverse().ToList();
+
+        await LoadUserHistory();
+    }
+
+    private async Task LoadUserHistory()
+    {
+        if (!Guid.TryParse(UserId, out var userGuid))
+        {
+            errorMessage = "Invalid user ID";
+            isLoading = false;
+            return;
+        }
+
+        isLoading = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            userHistory = await ApiService.GetUserSeasonHistoryAsync(userGuid, selectedYear);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load player history: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetPickRowClass(ApiService.UserPickHistoryDto pick)
+    {
+        if (!pick.HasResult) return "";
+        if (pick.IsPush == true) return "table-secondary";
+        if (pick.IsWin == true) return "table-success";
+        return "table-danger";
+    }
+
+    private string FormatLine(decimal line)
+    {
+        if (line == 0) return "PK";
+        return line > 0 ? $"+{line}" : line.ToString();
+    }
+}
