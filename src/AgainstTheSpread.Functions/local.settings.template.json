@@ -1,0 +1,15 @@
+{
+    "IsEncrypted": false,
+    "Values": {
+        "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+        "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+        "AzureStorageConnectionString": "UseDevelopmentStorage=true",
+        "ADMIN_EMAILS": "your-email@example.com",
+        "SqlConnectionString": "Server=localhost,1433;Database=AgainstTheSpread;User Id=sa;Password=LocalDev123!;TrustServerCertificate=True;"
+    },
+    "Host": {
+        "LocalHttpPort": 7071,
+        "CORS": "http://localhost:4280",
+        "CORSCredentials": true
+    }
+}
