@@ -20,24 +20,24 @@ fi
 echo "Starting SQL Server and Azurite containers..."
 docker compose up -d
 
-# Wait for SQL Server to be ready
+# Wait for SQL Server to be ready (using TCP connection check)
 echo "Waiting for SQL Server to be ready..."
-MAX_RETRIES=30
+MAX_RETRIES=60
 RETRY_COUNT=0
-until docker exec ats-sqlserver /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "LocalDev123!" -Q "SELECT 1" > /dev/null 2>&1; do
+until nc -z localhost 1433 2>/dev/null; do
     RETRY_COUNT=$((RETRY_COUNT + 1))
     if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
-        echo "Error: SQL Server failed to start after $MAX_RETRIES attempts"
+        echo "Error: SQL Server port not available after $MAX_RETRIES attempts"
         exit 1
     fi
-    echo "  Waiting for SQL Server... (attempt $RETRY_COUNT/$MAX_RETRIES)"
+    echo "  Waiting for SQL Server port... (attempt $RETRY_COUNT/$MAX_RETRIES)"
     sleep 2
 done
-echo "SQL Server is ready!"
+echo "SQL Server port is open, waiting for service to initialize..."
+sleep 10
 
-# Create database if it doesn't exist
-echo "Creating database if needed..."
-docker exec ats-sqlserver /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "LocalDev123!" -Q "IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'AgainstTheSpread') CREATE DATABASE AgainstTheSpread"
+# Create database using dotnet (more reliable than sqlcmd in container)
+echo "Creating database via EF Core..."
 
 # Apply migrations
 echo "Applying EF Core migrations..."
