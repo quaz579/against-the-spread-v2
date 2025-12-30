@@ -13,6 +13,7 @@
     <PackageReference Include="bUnit" Version="1.28.9" />
     <PackageReference Include="coverlet.collector" Version="6.0.0" />
     <PackageReference Include="FluentAssertions" Version="6.12.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.11" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageReference Include="Moq" Version="4.20.70" />
     <PackageReference Include="xunit" Version="2.5.3" />
@@ -27,6 +28,7 @@
     <ProjectReference Include="..\AgainstTheSpread.Core\AgainstTheSpread.Core.csproj" />
     <ProjectReference Include="..\AgainstTheSpread.Functions\AgainstTheSpread.Functions.csproj" />
     <ProjectReference Include="..\AgainstTheSpread.Web\AgainstTheSpread.Web.csproj" />
+    <ProjectReference Include="..\AgainstTheSpread.Data\AgainstTheSpread.Data.csproj" />
   </ItemGroup>
 
 </Project>

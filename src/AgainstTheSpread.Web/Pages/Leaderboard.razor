@@ -1,0 +1,311 @@
+@page "/leaderboard"
+@using AgainstTheSpread.Web.Services
+@inject ApiService ApiService
+
+<PageTitle>Leaderboard - Against The Spread</PageTitle>
+
+<div class="container">
+    <h1>Leaderboard</h1>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <label for="yearSelect" class="form-label">Season</label>
+            <select id="yearSelect" class="form-select" @bind="selectedYear" @bind:after="LoadData">
+                @foreach (var year in availableYears)
+                {
+                    <option value="@year">@year</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="viewSelect" class="form-label">View</label>
+            <select id="viewSelect" class="form-select" @bind="selectedView" @bind:after="OnViewChanged">
+                <option value="season">Season Standings</option>
+                <option value="weekly">Weekly Results</option>
+            </select>
+        </div>
+        @if (selectedView == "weekly" && availableWeeks.Any())
+        {
+            <div class="col-md-3">
+                <label for="weekSelect" class="form-label">Week</label>
+                <select id="weekSelect" class="form-select" @bind="selectedWeek" @bind:after="LoadWeeklyLeaderboard">
+                    @foreach (var week in availableWeeks)
+                    {
+                        <option value="@week">Week @week</option>
+                    }
+                </select>
+            </div>
+        }
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (errorMessage != null)
+    {
+        <div class="alert alert-danger" role="alert">
+            @errorMessage
+        </div>
+    }
+    else if (selectedView == "season")
+    {
+        @if (seasonLeaderboard?.Entries?.Any() == true)
+        {
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th scope="col" style="width: 60px;">Rank</th>
+                            <th scope="col">Player</th>
+                            <th scope="col" class="text-center">W</th>
+                            <th scope="col" class="text-center">L</th>
+                            <th scope="col" class="text-center">P</th>
+                            <th scope="col" class="text-center">Win %</th>
+                            <th scope="col" class="text-center">Weeks</th>
+                            <th scope="col" class="text-center">Perfect</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{
+                            var seasonRank = 1;
+                        }
+                        @foreach (var entry in seasonLeaderboard.Entries)
+                        {
+                            <tr class="@(seasonRank <= 3 ? "table-warning" : "")">
+                                <td>
+                                    @if (seasonRank == 1)
+                                    {
+                                        <span class="badge bg-warning text-dark">1st</span>
+                                    }
+                                    else if (seasonRank == 2)
+                                    {
+                                        <span class="badge bg-secondary">2nd</span>
+                                    }
+                                    else if (seasonRank == 3)
+                                    {
+                                        <span class="badge bg-danger">3rd</span>
+                                    }
+                                    else
+                                    {
+                                        @seasonRank
+                                    }
+                                </td>
+                                <td>
+                                    <a href="/leaderboard/user/@entry.UserId?year=@selectedYear" class="text-decoration-none">
+                                        @entry.DisplayName
+                                    </a>
+                                </td>
+                                <td class="text-center text-success fw-bold">@entry.TotalWins</td>
+                                <td class="text-center text-danger">@entry.TotalLosses</td>
+                                <td class="text-center text-muted">@entry.TotalPushes</td>
+                                <td class="text-center">@entry.WinPercentage%</td>
+                                <td class="text-center">@entry.WeeksPlayed</td>
+                                <td class="text-center">
+                                    @if (entry.PerfectWeeks > 0)
+                                    {
+                                        <span class="badge bg-success">@entry.PerfectWeeks</span>
+                                    }
+                                    else
+                                    {
+                                        <text>-</text>
+                                    }
+                                </td>
+                            </tr>
+                            seasonRank++;
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-info" role="alert">
+                No standings available for @selectedYear yet. Check back after results are entered.
+            </div>
+        }
+    }
+    else if (selectedView == "weekly")
+    {
+        @if (weeklyLeaderboard?.Entries?.Any() == true)
+        {
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th scope="col" style="width: 60px;">Rank</th>
+                            <th scope="col">Player</th>
+                            <th scope="col" class="text-center">W</th>
+                            <th scope="col" class="text-center">L</th>
+                            <th scope="col" class="text-center">P</th>
+                            <th scope="col" class="text-center">Win %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{
+                            var weekRank = 1;
+                        }
+                        @foreach (var entry in weeklyLeaderboard.Entries)
+                        {
+                            <tr class="@(weekRank <= 3 ? "table-warning" : "") @(entry.Wins >= 6 && entry.Losses == 0 ? "table-success" : "")">
+                                <td>
+                                    @if (weekRank == 1)
+                                    {
+                                        <span class="badge bg-warning text-dark">1st</span>
+                                    }
+                                    else if (weekRank == 2)
+                                    {
+                                        <span class="badge bg-secondary">2nd</span>
+                                    }
+                                    else if (weekRank == 3)
+                                    {
+                                        <span class="badge bg-danger">3rd</span>
+                                    }
+                                    else
+                                    {
+                                        @weekRank
+                                    }
+                                </td>
+                                <td>
+                                    <a href="/leaderboard/user/@entry.UserId?year=@selectedYear" class="text-decoration-none">
+                                        @entry.DisplayName
+                                        @if (entry.Wins >= 6 && entry.Losses == 0)
+                                        {
+                                            <span class="badge bg-success ms-2">PERFECT</span>
+                                        }
+                                    </a>
+                                </td>
+                                <td class="text-center text-success fw-bold">@entry.Wins</td>
+                                <td class="text-center text-danger">@entry.Losses</td>
+                                <td class="text-center text-muted">@entry.Pushes</td>
+                                <td class="text-center">@entry.WinPercentage%</td>
+                            </tr>
+                            weekRank++;
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-info" role="alert">
+                No results available for Week @selectedWeek yet. Check back after results are entered.
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private int selectedYear = DateTime.Now.Year;
+    private int selectedWeek = 1;
+    private string selectedView = "season";
+    private List<int> availableYears = new();
+    private List<int> availableWeeks = new();
+    private bool isLoading = true;
+    private string? errorMessage;
+
+    private ApiService.SeasonLeaderboardResponse? seasonLeaderboard;
+    private ApiService.WeeklyLeaderboardResponse? weeklyLeaderboard;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Set up available years (current year and previous few)
+        var currentYear = DateTime.Now.Year;
+        availableYears = Enumerable.Range(currentYear - 2, 3).Reverse().ToList();
+
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            // Load available weeks for this year
+            availableWeeks = await ApiService.GetAvailableWeeksAsync(selectedYear);
+            if (availableWeeks.Any())
+            {
+                selectedWeek = availableWeeks.Max();
+            }
+
+            if (selectedView == "season")
+            {
+                await LoadSeasonLeaderboard();
+            }
+            else
+            {
+                await LoadWeeklyLeaderboard();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load leaderboard: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnViewChanged()
+    {
+        if (selectedView == "season")
+        {
+            await LoadSeasonLeaderboard();
+        }
+        else
+        {
+            await LoadWeeklyLeaderboard();
+        }
+    }
+
+    private async Task LoadSeasonLeaderboard()
+    {
+        isLoading = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            seasonLeaderboard = await ApiService.GetSeasonLeaderboardAsync(selectedYear);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load season leaderboard: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadWeeklyLeaderboard()
+    {
+        isLoading = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            weeklyLeaderboard = await ApiService.GetWeeklyLeaderboardAsync(selectedWeek, selectedYear);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load weekly leaderboard: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+}

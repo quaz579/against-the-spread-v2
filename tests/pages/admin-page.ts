@@ -119,6 +119,14 @@ export class AdminPage {
         await userDetailsInput.waitFor({ state: 'visible', timeout: 10000 });
         await userDetailsInput.fill(email);
 
+        // Also fill in claims with email claim - required by AuthHelper
+        const claimsInput = this.page.locator('input[name="claims"]');
+        if (await claimsInput.isVisible()) {
+            const emailClaim = JSON.stringify([{ typ: 'email', val: email }]);
+            await claimsInput.fill(emailClaim);
+            await claimsInput.dispatchEvent('keyup');
+        }
+
         // Trigger the keyup event to save to localStorage (SWA CLI uses this)
         await userDetailsInput.dispatchEvent('keyup');
 

@@ -35,6 +35,20 @@
       ]
     },
     {
+      "route": "/api/user-picks",
+      "methods": ["POST", "GET"],
+      "allowedRoles": [
+        "authenticated"
+      ]
+    },
+    {
+      "route": "/api/user-picks/*",
+      "methods": ["GET"],
+      "allowedRoles": [
+        "authenticated"
+      ]
+    },
+    {
       "route": "/admin",
       "headers": {
         "Cache-Control": "no-cache, no-store, must-revalidate"

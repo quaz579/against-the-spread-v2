@@ -30,4 +30,7 @@ builder.Services.AddScoped<ITeamColorService>(sp =>
     return new TeamColorService(logger, httpClient);
 });
 
+// Register AuthStateService for managing authentication state
+builder.Services.AddScoped<IAuthStateService, AuthStateService>();
+
 await builder.Build().RunAsync();
