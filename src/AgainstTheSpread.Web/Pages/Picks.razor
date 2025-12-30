@@ -7,13 +7,16 @@
 @inject ApiService ApiService
 @inject ITeamLogoService TeamLogoService
 @inject ITeamColorService TeamColorService
+@inject IAuthStateService AuthStateService
+@inject NavigationManager Navigation
 @inject HttpClient HttpClient
 @inject IJSRuntime JSRuntime
+@inject ILogger<Picks> Logger
 
 <PageTitle>Make Your Picks - Against The Spread</PageTitle>
 
 <div class="container mt-4">
-    <h1 class="mb-4">🏈 Make Your Weekly Picks</h1>
+    <h1 class="mb-4">Make Your Weekly Picks</h1>
 
     @if (isLoading)
     {
@@ -31,18 +34,39 @@
         </div>
         <button class="btn btn-primary" @onclick="LoadAvailableWeeks">Retry</button>
     }
-    else if (currentWeekLines == null)
+    else if (currentWeekLines == null && gamesFromDb == null)
     {
+        <!-- Auth Status Banner -->
+        @if (AuthStateService.IsAuthenticated)
+        {
+            <div class="alert alert-success d-flex justify-content-between align-items-center mb-4">
+                <span>Signed in as <strong>@AuthStateService.UserEmail</strong> - Your picks will be saved automatically!</span>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="Logout">Sign Out</button>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-info mb-4">
+                <strong>Sign in to save your picks!</strong> Without signing in, you'll download an Excel file to submit manually.
+                <button class="btn btn-primary btn-sm ms-3" @onclick="Login">
+                    Sign in with Google
+                </button>
+            </div>
+        }
+
         <!-- Week Selection -->
         <div class="card mb-4">
             <div class="card-body">
-                <h3 class="card-title">Select Week and Enter Your Name</h3>
+                <h3 class="card-title">Select Week @(AuthStateService.IsAuthenticated ? "" : "and Enter Your Name")</h3>
 
-                <div class="mb-3">
-                    <label for="userName" class="form-label">Your Name</label>
-                    <input type="text" class="form-control" id="userName" @bind="userName"
-                        placeholder="Enter your full name" />
-                </div>
+                @if (!AuthStateService.IsAuthenticated)
+                {
+                    <div class="mb-3">
+                        <label for="userName" class="form-label">Your Name</label>
+                        <input type="text" class="form-control" id="userName" @bind="userName"
+                            placeholder="Enter your full name" />
+                    </div>
+                }
 
                 <div class="mb-3">
                     <label for="year" class="form-label">Season</label>
@@ -65,7 +89,7 @@
                 </div>
 
                 <button class="btn btn-primary btn-lg" @onclick="LoadGames"
-                    disabled="@(string.IsNullOrWhiteSpace(userName) || selectedWeek == 0)">
+                    disabled="@((!AuthStateService.IsAuthenticated && string.IsNullOrWhiteSpace(userName)) || selectedWeek == 0)">
                     Continue to Picks
                 </button>
             </div>
@@ -74,46 +98,73 @@
     else
     {
         <!-- Game Selection -->
-        <div class="mb-3">
+        <div class="mb-3 d-flex justify-content-between align-items-center">
             <button class="btn btn-secondary" @onclick="GoBack">
-                ← Back to Week Selection
+                Back to Week Selection
             </button>
+
+            @if (AuthStateService.IsAuthenticated)
+            {
+                <span class="badge bg-success">Signed in as @AuthStateService.UserEmail</span>
+            }
         </div>
 
         <div class="alert alert-info" role="alert">
-            <strong>@userName</strong> - Week @selectedWeek, @selectedYear
+            @if (AuthStateService.IsAuthenticated)
+            {
+                <strong>Week @selectedWeek, @selectedYear</strong>
+            }
+            else
+            {
+                <text><strong>@userName</strong> - Week @selectedWeek, @selectedYear</text>
+            }
             <br />
             <strong>Selected: @selectedPicks.Count / 6 picks</strong>
             @if (selectedPicks.Count == 6)
             {
-                <span class="text-success ms-2">✓ Ready to download!</span>
+                <span class="text-success ms-2">Ready to @(AuthStateService.IsAuthenticated ? "submit" : "download")!</span>
             }
         </div>
 
+        @if (successMessage != null)
+        {
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                @successMessage
+                <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+            </div>
+        }
+
         <div class="row">
-            @foreach (var game in currentWeekLines.Games)
+            @foreach (var game in GetGamesForDisplay())
             {
                 var isFavoriteSelected = selectedPicks.Contains(game.Favorite);
                 var isUnderdogSelected = selectedPicks.Contains(game.Underdog);
-                var gameDate = game.GameDate.ToString("ddd M/d");
+                var gameDate = game.GameDate.ToString("ddd M/d h:mm tt");
                 var favoriteColors = TeamColorService.GetTeamColors(game.Favorite);
                 var underdogColors = TeamColorService.GetTeamColors(game.Underdog);
+                var isLocked = game.IsLocked;
 
                 <div class="col-md-6 col-lg-4 mb-3">
-                    <div class="card h-100">
+                    <div class="card h-100 @(isLocked ? "border-danger" : "")">
                         <div class="card-body">
-                            <small class="text-muted">@gameDate</small>
-                            <div class="d-grid gap-2 mt-2">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small class="text-muted">@gameDate</small>
+                                @if (isLocked)
+                                {
+                                    <span class="badge bg-danger">LOCKED</span>
+                                }
+                            </div>
+                            <div class="d-grid gap-2">
                                 <button class="btn @GetButtonClass(isFavoriteSelected, favoriteColors)"
                                     style="@GetButtonStyle(isFavoriteSelected, favoriteColors)"
-                                    @onclick="() => TogglePick(game.Favorite)"
-                                    disabled="@(!isFavoriteSelected && selectedPicks.Count >= 6)">
+                                    @onclick="() => TogglePick(game, game.Favorite)"
+                                    disabled="@(isLocked || (!isFavoriteSelected && selectedPicks.Count >= 6))">
                                     <TeamLogo TeamName="@game.Favorite"
                                         Style="width: 20px; height: 20px; object-fit: contain; margin-right: 6px; vertical-align: middle;" />
-                                    @game.FavoriteDisplay
+                                    @game.Favorite @game.Line
                                     @if (isFavoriteSelected)
                                     {
-                                        <span>✓</span>
+                                        <span class="ms-1">&#10003;</span>
                                     }
                                 </button>
 
@@ -123,14 +174,14 @@
 
                                 <button class="btn @GetButtonClass(isUnderdogSelected, underdogColors)"
                                     style="@GetButtonStyle(isUnderdogSelected, underdogColors)"
-                                    @onclick="() => TogglePick(game.Underdog)"
-                                    disabled="@(!isUnderdogSelected && selectedPicks.Count >= 6)">
+                                    @onclick="() => TogglePick(game, game.Underdog)"
+                                    disabled="@(isLocked || (!isUnderdogSelected && selectedPicks.Count >= 6))">
                                     <TeamLogo TeamName="@game.Underdog"
                                         Style="width: 20px; height: 20px; object-fit: contain; margin-right: 6px; vertical-align: middle;" />
-                                    @game.UnderdogDisplay
+                                    @game.Underdog
                                     @if (isUnderdogSelected)
                                     {
-                                        <span>✓</span>
+                                        <span class="ms-1">&#10003;</span>
                                     }
                                 </button>
                             </div>
@@ -145,28 +196,45 @@
             <div class="fixed-bottom bg-white border-top p-3 shadow">
                 <div class="container">
                     <div class="d-grid gap-2">
-                        <button class="btn btn-success btn-lg" @onclick="GeneratePicks" disabled="@isDownloading">
-                            @if (isDownloading)
-                            {
-                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                                <span>Generating Excel...</span>
-                            }
-                            else
-                            {
-                                <span>📥 Generate Your Picks</span>
-                            }
-                        </button>
-                        <button class="btn btn-outline-primary btn-lg" @onclick="PrintPicksSheet" disabled="@(isDownloading || isPrinting)">
-                            @if (isPrinting)
-                            {
-                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                                <span>Opening Print View...</span>
-                            }
-                            else
-                            {
-                                <span>🖨️ Print My Picks</span>
-                            }
-                        </button>
+                        @if (AuthStateService.IsAuthenticated)
+                        {
+                            <button class="btn btn-success btn-lg" @onclick="SubmitPicksToDatabase" disabled="@isSubmitting">
+                                @if (isSubmitting)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    <span>Saving Picks...</span>
+                                }
+                                else
+                                {
+                                    <span>Save My Picks</span>
+                                }
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-success btn-lg" @onclick="GeneratePicks" disabled="@isDownloading">
+                                @if (isDownloading)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    <span>Generating Excel...</span>
+                                }
+                                else
+                                {
+                                    <span>Download Picks</span>
+                                }
+                            </button>
+                            <button class="btn btn-outline-primary btn-lg" @onclick="PrintPicksSheet" disabled="@(isDownloading || isPrinting)">
+                                @if (isPrinting)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    <span>Opening Print View...</span>
+                                }
+                                else
+                                {
+                                    <span>Print My Picks</span>
+                                }
+                            </button>
+                        }
                     </div>
                 </div>
             </div>
@@ -180,19 +248,36 @@
     private int selectedWeek = 0;
     private List<int> availableWeeks = new();
     private WeeklyLines? currentWeekLines = null;
+    private ApiService.GamesResponse? gamesFromDb = null;
     private List<string> selectedPicks = new();
+    private Dictionary<string, int> teamToGameId = new(); // Maps team name to GameId for database submission
     private bool isLoading = true;
     private bool isDownloading = false;
     private bool isPrinting = false;
+    private bool isSubmitting = false;
     private string? errorMessage = null;
+    private string? successMessage = null;
 
     protected override async Task OnInitializedAsync()
     {
+        // Initialize auth state
+        await AuthStateService.InitializeAsync();
+
         // Initialize the team logo service and team color service
         await TeamLogoService.InitializeAsync(HttpClient);
         await TeamColorService.InitializeAsync(HttpClient);
 
         await LoadAvailableWeeks();
+    }
+
+    private void Login()
+    {
+        AuthStateService.Login(Navigation.Uri);
+    }
+
+    private void Logout()
+    {
+        AuthStateService.Logout("/picks");
     }
 
     private async Task LoadAvailableWeeks()
@@ -221,7 +306,7 @@
 
     private async Task LoadGames()
     {
-        if (string.IsNullOrWhiteSpace(userName) || selectedWeek == 0)
+        if ((!AuthStateService.IsAuthenticated && string.IsNullOrWhiteSpace(userName)) || selectedWeek == 0)
             return;
 
         isLoading = true;
@@ -229,22 +314,45 @@
 
         try
         {
-            currentWeekLines = await ApiService.GetLinesAsync(selectedWeek, selectedYear);
-
-            if (currentWeekLines == null)
+            // For authenticated users, try to load from database first (includes IDs and lock status)
+            if (AuthStateService.IsAuthenticated)
             {
-                errorMessage = $"Could not load games for Week {selectedWeek}. Please try again.";
-                currentWeekLines = null;
+                gamesFromDb = await ApiService.GetGamesAsync(selectedWeek, selectedYear);
+                if (gamesFromDb != null && gamesFromDb.Games.Any())
+                {
+                    // Build mapping of team names to game IDs
+                    teamToGameId.Clear();
+                    foreach (var game in gamesFromDb.Games)
+                    {
+                        teamToGameId[game.Favorite] = game.Id;
+                        teamToGameId[game.Underdog] = game.Id;
+                    }
+
+                    // Load existing picks for this week
+                    await LoadExistingPicks();
+                    selectedPicks.Clear();
+                    foreach (var pick in existingPicks)
+                    {
+                        selectedPicks.Add(pick.SelectedTeam);
+                    }
+                }
+                else
+                {
+                    // Fall back to blob storage data if no database records
+                    Logger.LogWarning("No games in database for week {Week}, year {Year}. Falling back to blob storage.", selectedWeek, selectedYear);
+                    await LoadFromBlobStorage();
+                }
             }
             else
             {
-                selectedPicks.Clear();
+                // For unauthenticated users, use blob storage (original flow)
+                await LoadFromBlobStorage();
             }
         }
         catch (Exception ex)
         {
             errorMessage = $"Failed to load games: {ex.Message}";
-            currentWeekLines = null;
+            Logger.LogError(ex, "Error loading games");
         }
         finally
         {
@@ -252,20 +360,163 @@
         }
     }
 
+    private async Task LoadFromBlobStorage()
+    {
+        currentWeekLines = await ApiService.GetLinesAsync(selectedWeek, selectedYear);
+
+        if (currentWeekLines == null)
+        {
+            errorMessage = $"Could not load games for Week {selectedWeek}. Please try again.";
+        }
+        else
+        {
+            selectedPicks.Clear();
+        }
+    }
+
+    private List<ApiService.UserPickDto> existingPicks = new();
+
+    private async Task LoadExistingPicks()
+    {
+        try
+        {
+            var picks = await ApiService.GetUserPicksAsync(selectedYear, selectedWeek);
+            existingPicks = picks ?? new List<ApiService.UserPickDto>();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load existing picks");
+            existingPicks = new List<ApiService.UserPickDto>();
+        }
+    }
+
     private void GoBack()
     {
         currentWeekLines = null;
+        gamesFromDb = null;
         selectedPicks.Clear();
+        teamToGameId.Clear();
+        existingPicks.Clear();
+        successMessage = null;
     }
 
-    private void TogglePick(string team)
+    private void TogglePick(GameDisplayModel game, string team)
     {
-        PickSelectionHelper.TogglePick(team, selectedPicks, currentWeekLines?.Games);
+        // Don't allow changes to locked games
+        if (game.IsLocked)
+            return;
+
+        // Find the opposing team in this game
+        var opposingTeam = team == game.Favorite ? game.Underdog : game.Favorite;
+
+        if (selectedPicks.Contains(team))
+        {
+            // Deselect this team
+            selectedPicks.Remove(team);
+        }
+        else
+        {
+            // Check if the opposing team is selected, if so, remove it first
+            if (selectedPicks.Contains(opposingTeam))
+            {
+                selectedPicks.Remove(opposingTeam);
+            }
+
+            // Only add if we have room
+            if (selectedPicks.Count < 6)
+            {
+                selectedPicks.Add(team);
+            }
+        }
+    }
+
+    private List<GameDisplayModel> GetGamesForDisplay()
+    {
+        if (gamesFromDb != null)
+        {
+            return gamesFromDb.Games.Select(g => new GameDisplayModel
+            {
+                Id = g.Id,
+                Favorite = g.Favorite,
+                Underdog = g.Underdog,
+                Line = g.Line,
+                GameDate = g.GameDate,
+                VsAt = "vs", // Default for database games
+                IsLocked = g.IsLocked
+            }).ToList();
+        }
+        else if (currentWeekLines != null)
+        {
+            return currentWeekLines.Games.Select(g => new GameDisplayModel
+            {
+                Id = 0, // No ID from blob storage
+                Favorite = g.Favorite,
+                Underdog = g.Underdog,
+                Line = g.Line,
+                GameDate = g.GameDate,
+                VsAt = g.VsAt,
+                IsLocked = DateTime.UtcNow >= g.GameDate
+            }).ToList();
+        }
+
+        return new List<GameDisplayModel>();
+    }
+
+    private async Task SubmitPicksToDatabase()
+    {
+        if (selectedPicks.Count != 6 || !AuthStateService.IsAuthenticated)
+            return;
+
+        isSubmitting = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            var picks = selectedPicks
+                .Where(team => teamToGameId.ContainsKey(team))
+                .Select(team => new ApiService.PickSubmission
+                {
+                    GameId = teamToGameId[team],
+                    SelectedTeam = team
+                })
+                .ToList();
+
+            if (picks.Count < 6)
+            {
+                errorMessage = "Could not map all picks to games. Please try again.";
+                return;
+            }
+
+            var result = await ApiService.SubmitUserPicksAsync(selectedYear, selectedWeek, picks);
+
+            if (result?.Success == true)
+            {
+                successMessage = $"Your picks have been saved! {result.PicksSubmitted} picks submitted.";
+                if (result.LockedGames?.Any() == true)
+                {
+                    successMessage += $" Note: {result.LockedGames.Count} picks were rejected because the games are locked.";
+                }
+            }
+            else
+            {
+                errorMessage = result?.Message ?? "Failed to save picks. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving picks: {ex.Message}";
+            Logger.LogError(ex, "Error submitting picks to database");
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
     }
 
     private async Task GeneratePicks()
     {
-        if (selectedPicks.Count != 6)
+        if (selectedPicks.Count != 6 || currentWeekLines == null)
             return;
 
         isDownloading = true;
@@ -290,7 +541,7 @@
                 await JSRuntime.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(excelBytes));
 
                 // Show success message and reset
-                await JSRuntime.InvokeVoidAsync("alert", "✅ Your picks have been downloaded successfully!");
+                await JSRuntime.InvokeVoidAsync("alert", "Your picks have been downloaded successfully!");
                 GoBack();
             }
             else
@@ -417,8 +668,8 @@
         foreach (var teamName in selectedPicks)
         {
             // Find the game where this team is either favorite or underdog
-            var game = currentWeekLines!.Games.FirstOrDefault(g => 
-                g.Favorite.Equals(teamName, StringComparison.OrdinalIgnoreCase) || 
+            var game = currentWeekLines!.Games.FirstOrDefault(g =>
+                g.Favorite.Equals(teamName, StringComparison.OrdinalIgnoreCase) ||
                 g.Underdog.Equals(teamName, StringComparison.OrdinalIgnoreCase));
 
             if (game != null)
@@ -433,5 +684,19 @@
         }
 
         return PrintPageGenerator.GeneratePicksHtml(picksLines, selectedWeek);
+    }
+
+    /// <summary>
+    /// Display model for games that works with both blob storage and database sources.
+    /// </summary>
+    private class GameDisplayModel
+    {
+        public int Id { get; set; }
+        public string Favorite { get; set; } = string.Empty;
+        public string Underdog { get; set; } = string.Empty;
+        public decimal Line { get; set; }
+        public DateTime GameDate { get; set; }
+        public string VsAt { get; set; } = "vs";
+        public bool IsLocked { get; set; }
     }
 }

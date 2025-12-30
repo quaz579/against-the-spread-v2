@@ -6,14 +6,14 @@
 |-------|--------|----------|-------------|
 | 1 | Complete | 19/19 | Infrastructure Separation |
 | 2 | Complete | 18/18 | Database Foundation |
-| 3 | In Progress | 14/22 | User Authentication & Pick Submission |
+| 3 | Complete | 22/22 | User Authentication & Pick Submission |
 | 4 | Not Started | 0/14 | Admin Results Entry |
 | 5 | Not Started | 0/16 | Leaderboard |
 | 6 | Not Started | 0/8 | Bowl Games (Future) |
 | 7 | Not Started | 0/6 | Sports Data API (Future) |
 | 8 | Not Started | 0/12 | PR Preview Environments & E2E Testing (Future) |
 
-**Overall Progress**: 51/115 tasks completed
+**Overall Progress**: 59/115 tasks completed
 
 ---
 
@@ -281,16 +281,16 @@ Push to main → Terraform Plan/Apply → Deploy to Dev → Deploy to Prod
 - [x] **3.6.1** Update `UploadLinesFunction.cs` - after blob upload, call `IGameService.SyncGamesFromLinesAsync()`
 
 ### 3.7 Blazor Auth State
-- [ ] **3.7.1** Create `src/AgainstTheSpread.Web/Services/AuthStateService.cs` - manages user auth state client-side
-- [ ] **3.7.2** Register AuthStateService in `Program.cs`
-- [ ] **3.7.3** Add methods: `InitializeAsync()`, `IsAuthenticated`, `UserId`, `UserEmail`, `UserName`
+- [x] **3.7.1** Create `src/AgainstTheSpread.Web/Services/AuthStateService.cs` - manages user auth state client-side
+- [x] **3.7.2** Register AuthStateService in `Program.cs`
+- [x] **3.7.3** Add methods: `InitializeAsync()`, `IsAuthenticated`, `UserId`, `UserEmail`, `UserName`
 
 ### 3.8 Modify Picks.razor
-- [ ] **3.8.1** Add auth state detection (reuse pattern from Admin.razor)
-- [ ] **3.8.2** Add dual-mode rendering: authenticated (save to DB) vs unauthenticated (Excel download)
-- [ ] **3.8.3** Add game lock indicators (badge showing "Locked" when GameDate passed)
-- [ ] **3.8.4** Add "Login to save picks" prompt for unauthenticated users
-- [ ] **3.8.5** Modify submit button behavior based on auth state
+- [x] **3.8.1** Add auth state detection (reuse pattern from Admin.razor)
+- [x] **3.8.2** Add dual-mode rendering: authenticated (save to DB) vs unauthenticated (Excel download)
+- [x] **3.8.3** Add game lock indicators (badge showing "Locked" when GameDate passed)
+- [x] **3.8.4** Add "Login to save picks" prompt for unauthenticated users
+- [x] **3.8.5** Modify submit button behavior based on auth state
 
 ### Phase 3 Key Files
 - New: `src/AgainstTheSpread.Functions/Helpers/AuthHelper.cs` (UserInfo record + ValidateAuth + IsAdmin)
@@ -305,18 +305,19 @@ Push to main → Terraform Plan/Apply → Deploy to Dev → Deploy to Prod
 - New: `src/AgainstTheSpread.Tests/Data/Services/UserServiceTests.cs` (12 tests)
 - New: `src/AgainstTheSpread.Tests/Data/Services/GameServiceTests.cs` (14 tests)
 - New: `src/AgainstTheSpread.Tests/Data/Services/PickServiceTests.cs` (14 tests)
-- Pending: `src/AgainstTheSpread.Web/Services/AuthStateService.cs`
+- New: `src/AgainstTheSpread.Web/Services/AuthStateService.cs`
+- New: `src/AgainstTheSpread.Functions/GamesFunction.cs` (returns games with IDs for authenticated picks)
 - Modified: `src/AgainstTheSpread.Functions/UploadLinesFunction.cs` (uses AuthHelper + syncs games)
 - Modified: `src/AgainstTheSpread.Functions/Program.cs` (registers services)
-- Pending: `src/AgainstTheSpread.Web/Pages/Picks.razor`
+- Modified: `src/AgainstTheSpread.Web/Pages/Picks.razor` (dual-mode with auth support)
 - Modified: `src/AgainstTheSpread.Web/wwwroot/staticwebapp.config.json` (protected routes)
 
 ### Phase 3 Success Criteria
-- [ ] Authenticated users can submit picks via the app
-- [ ] Picks are persisted to database
-- [ ] Game locking prevents changes after kickoff (server-side rejection)
-- [ ] Unauthenticated users still get Excel download flow
-- [ ] Lock status visible in UI
+- [x] Authenticated users can submit picks via the app
+- [x] Picks are persisted to database
+- [x] Game locking prevents changes after kickoff (server-side rejection)
+- [x] Unauthenticated users still get Excel download flow
+- [x] Lock status visible in UI
 
 ---
 

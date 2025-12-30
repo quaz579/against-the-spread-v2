@@ -227,4 +227,155 @@ public class ApiService
         public int GamesCount { get; set; }
         public string Message { get; set; } = string.Empty;
     }
+
+    // ============ Games from Database ============
+
+    /// <summary>
+    /// Get games from the database for a specific week with IDs and lock status.
+    /// Used for authenticated pick submission.
+    /// </summary>
+    public async Task<GamesResponse?> GetGamesAsync(int week, int year)
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<GamesResponse>($"api/games/{week}?year={year}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get games for week {Week}, year {Year}", week, year);
+            return null;
+        }
+    }
+
+    public class GamesResponse
+    {
+        public int Year { get; set; }
+        public int Week { get; set; }
+        public int TotalGames { get; set; }
+        public List<GameDto> Games { get; set; } = new();
+    }
+
+    public class GameDto
+    {
+        public int Id { get; set; }
+        public string Favorite { get; set; } = string.Empty;
+        public string Underdog { get; set; } = string.Empty;
+        public decimal Line { get; set; }
+        public DateTime GameDate { get; set; }
+        public bool IsLocked { get; set; }
+        public bool HasResult { get; set; }
+        public string? SpreadWinner { get; set; }
+        public bool? IsPush { get; set; }
+    }
+
+    // ============ Authenticated User Picks Methods ============
+
+    /// <summary>
+    /// Submit picks to the database for authenticated users
+    /// </summary>
+    public async Task<UserPicksResponse?> SubmitUserPicksAsync(int year, int week, List<PickSubmission> picks)
+    {
+        try
+        {
+            var request = new UserPicksRequest
+            {
+                Year = year,
+                Week = week,
+                Picks = picks
+            };
+
+            var response = await _httpClient.PostAsJsonAsync("api/user-picks", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadFromJsonAsync<UserPicksResponse>();
+            }
+
+            var errorContent = await response.Content.ReadAsStringAsync();
+            _logger.LogWarning("Failed to submit user picks: {StatusCode} - {Content}",
+                response.StatusCode, errorContent);
+
+            return new UserPicksResponse
+            {
+                Success = false,
+                Message = $"Server error: {response.StatusCode}"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception submitting user picks for week {Week}, year {Year}", week, year);
+            return new UserPicksResponse
+            {
+                Success = false,
+                Message = $"Error: {ex.Message}"
+            };
+        }
+    }
+
+    /// <summary>
+    /// Get the authenticated user's picks for a specific week
+    /// </summary>
+    public async Task<List<UserPickDto>?> GetUserPicksAsync(int year, int week)
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<List<UserPickDto>>($"api/user-picks/{week}?year={year}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get user picks for week {Week}, year {Year}", week, year);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Get the authenticated user's picks for an entire season
+    /// </summary>
+    public async Task<List<UserPickDto>?> GetUserSeasonPicksAsync(int year)
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<List<UserPickDto>>($"api/user-picks?year={year}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get user season picks for year {Year}", year);
+            return null;
+        }
+    }
+
+    // DTOs for user picks
+    public class PickSubmission
+    {
+        public int GameId { get; set; }
+        public string SelectedTeam { get; set; } = string.Empty;
+    }
+
+    public class UserPicksRequest
+    {
+        public int Year { get; set; }
+        public int Week { get; set; }
+        public List<PickSubmission> Picks { get; set; } = new();
+    }
+
+    public class UserPicksResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public int PicksSubmitted { get; set; }
+        public int PicksUpdated { get; set; }
+        public List<string> LockedGames { get; set; } = new();
+    }
+
+    public class UserPickDto
+    {
+        public int GameId { get; set; }
+        public string SelectedTeam { get; set; } = string.Empty;
+        public DateTime SubmittedAt { get; set; }
+        public string Favorite { get; set; } = string.Empty;
+        public string Underdog { get; set; } = string.Empty;
+        public decimal Line { get; set; }
+        public DateTime GameDate { get; set; }
+        public bool IsLocked { get; set; }
+    }
 }
