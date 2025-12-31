@@ -136,10 +136,12 @@ export class AdminPage {
 
         // Intercept all API requests and add the test auth header
         await this.page.route('**/api/**', async route => {
+            console.log(`[Route Handler] Intercepting: ${route.request().method()} ${route.request().url()}`);
             const headers = {
                 ...route.request().headers(),
                 'X-Test-User-Email': email
             };
+            console.log(`[Route Handler] Adding X-Test-User-Email: ${email}`);
             await route.continue({ headers });
         });
 

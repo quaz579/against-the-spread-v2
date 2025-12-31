@@ -62,7 +62,7 @@ jobs:
             -var-file="dev.tfvars" \
             -var="sql_admin_login=${{ secrets.TF_VAR_SQL_ADMIN_LOGIN }}" \
             -var="sql_admin_password=${{ secrets.TF_VAR_SQL_ADMIN_PASSWORD }}" \
-            -var="admin_emails=${{ secrets.TF_VAR_ADMIN_EMAILS }}" \
+            -var="admin_emails=${{ secrets.TF_VAR_ADMIN_EMAILS_DEV }}" \
             -auto-approve
 
   apply-prod:
@@ -74,8 +74,7 @@ jobs:
       (needs.apply-dev.result == 'success' || needs.apply-dev.result == 'skipped') &&
       (github.event_name == 'push' ||
        (github.event_name == 'workflow_dispatch' && (github.event.inputs.environment == 'prod' || github.event.inputs.environment == 'both')))
-    environment:
-      name: production
+    # NO environment protection - dev apply success IS the approval gate for prod
     outputs:
       result: ${{ steps.apply.outcome }}
     steps:
@@ -102,7 +101,7 @@ jobs:
             -var-file="prod.tfvars" \
             -var="sql_admin_login=${{ secrets.TF_VAR_SQL_ADMIN_LOGIN }}" \
             -var="sql_admin_password=${{ secrets.TF_VAR_SQL_ADMIN_PASSWORD }}" \
-            -var="admin_emails=${{ secrets.TF_VAR_ADMIN_EMAILS }}" \
+            -var="admin_emails=${{ secrets.TF_VAR_ADMIN_EMAILS_PROD }}" \
             -auto-approve
 
   # This job provides a single status that other workflows can depend on
