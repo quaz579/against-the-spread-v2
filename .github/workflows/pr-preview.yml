@@ -56,7 +56,7 @@ jobs:
           # Deploy to a preview environment (staging slot)
           swa deploy ./publish/web/wwwroot \
             --api-location ./publish/api \
-            --api-language dotnet \
+            --api-language dotnetisolated \
             --api-version 8.0 \
             --deployment-token "${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DEV }}" \
             --env "pr-${{ github.event.pull_request.number }}"
