@@ -58,11 +58,13 @@ jobs:
       - name: Run unit tests
         run: dotnet test --no-build --verbosity normal
 
-  # Job 2: Build once and upload artifacts
-  build:
-    name: Build & Package
+  # Job 2: Deploy to Dev environment (Azure builds the code)
+  deploy-dev:
+    name: Deploy to Dev
     needs: unit-tests
     runs-on: ubuntu-latest
+    outputs:
+      dev_url: ${{ env.DEV_URL }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -70,56 +72,20 @@ jobs:
           lfs: false
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || '' }}
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-
-      - name: Build and Publish Web Project
-        run: dotnet publish src/AgainstTheSpread.Web/AgainstTheSpread.Web.csproj -c Release -o publish/web
-
-      - name: Build and Publish Functions Project
-        run: dotnet publish src/AgainstTheSpread.Functions/AgainstTheSpread.Functions.csproj -c Release -o publish/api
-
-      - name: Copy staticwebapp.config.json to wwwroot
-        run: cp src/AgainstTheSpread.Web/wwwroot/staticwebapp.config.json publish/web/wwwroot/
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-artifacts
-          path: publish/
-          retention-days: 1
-
-  # Job 3: Deploy to Dev environment
-  deploy-dev:
-    name: Deploy to Dev
-    needs: build
-    runs-on: ubuntu-latest
-    outputs:
-      dev_url: ${{ env.DEV_URL }}
-    steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: app-artifacts
-          path: publish/
-
       - name: Deploy to Azure Static Web Apps (Dev)
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DEV }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: 'upload'
-          app_location: 'publish/web/wwwroot'
-          api_location: 'publish/api'
-          output_location: ''
-          skip_app_build: true
-          skip_api_build: true
+          app_location: 'src/AgainstTheSpread.Web'
+          api_location: 'src/AgainstTheSpread.Functions'
+          output_location: 'wwwroot'
 
       - name: Output Dev URL
         run: echo "Deployed to ${{ env.DEV_URL }}"
 
-  # Job 4: Wait for Dev deployment to be ready
+  # Job 3: Wait for Dev deployment to be ready
   wait-for-dev:
     name: Wait for Dev
     needs: deploy-dev
@@ -143,7 +109,7 @@ jobs:
           echo "Dev deployment failed to become accessible after 5 minutes"
           exit 1
 
-  # Job 5: Run E2E tests against Dev environment
+  # Job 4: Run E2E tests against Dev environment
   e2e-tests:
     name: E2E Tests (Dev)
     needs: [deploy-dev, wait-for-dev]
@@ -187,29 +153,28 @@ jobs:
           path: tests/test-results/
           retention-days: 7
 
-  # Job 6: Deploy to Prod (automatic after E2E passes)
+  # Job 5: Deploy to Prod (automatic after E2E passes, Azure builds the code)
   deploy-prod:
     name: Deploy to Prod
-    needs: [build, e2e-tests]
+    needs: e2e-tests
     runs-on: ubuntu-latest
     # NO environment protection - E2E tests passing IS the approval gate
     steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
         with:
-          name: app-artifacts
-          path: publish/
+          submodules: true
+          lfs: false
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || '' }}
 
       - name: Deploy to Azure Static Web Apps (Prod)
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PROD }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: 'upload'
-          app_location: 'publish/web/wwwroot'
-          api_location: 'publish/api'
-          output_location: ''
-          skip_app_build: true
-          skip_api_build: true
+          app_location: 'src/AgainstTheSpread.Web'
+          api_location: 'src/AgainstTheSpread.Functions'
+          output_location: 'wwwroot'
 
       - name: Output Prod URL
         run: echo "Deployed to ${{ env.PROD_URL }}"

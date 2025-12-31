@@ -11,11 +11,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  DOTNET_VERSION: '8.0.x'
   NODE_VERSION: '20'
 
 jobs:
-  # Deploy PR preview environment
+  # Deploy PR preview environment (Azure builds the code)
   deploy_preview:
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
@@ -28,20 +27,6 @@ jobs:
           submodules: true
           lfs: false
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-
-      - name: Build and Publish Web Project
-        run: dotnet publish src/AgainstTheSpread.Web/AgainstTheSpread.Web.csproj -c Release -o publish/web
-
-      - name: Build and Publish Functions Project
-        run: dotnet publish src/AgainstTheSpread.Functions/AgainstTheSpread.Functions.csproj -c Release -o publish/api
-
-      - name: Copy staticwebapp.config.json to wwwroot
-        run: cp src/AgainstTheSpread.Web/wwwroot/staticwebapp.config.json publish/web/wwwroot/
-
       - name: Deploy to PR Preview Environment
         id: deploy
         uses: Azure/static-web-apps-deploy@v1
@@ -49,11 +34,9 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DEV }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: 'upload'
-          app_location: 'publish/web/wwwroot'
-          api_location: 'publish/api'
-          output_location: ''
-          skip_app_build: true
-          skip_api_build: true
+          app_location: 'src/AgainstTheSpread.Web'
+          api_location: 'src/AgainstTheSpread.Functions'
+          output_location: 'wwwroot'
 
       - name: Get Preview URL
         id: get_url
