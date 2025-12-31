@@ -105,13 +105,36 @@ export class AdminPage {
     /**
      * Login using test auth bypass for cloud E2E testing.
      * Sets X-Test-User-Email header on all API requests.
+     * Also mocks /.auth/me to make frontend think user is logged in.
      * Only works when ENABLE_TEST_AUTH=true in the cloud environment.
      * @param email - Email to use for test auth (should match ADMIN_EMAILS)
      */
     async loginWithTestAuth(email: string): Promise<void> {
         console.log(`Setting up test auth bypass for email: ${email}`);
 
-        // Intercept all requests and add the test auth header
+        // Mock /.auth/me to make frontend think user is logged in
+        await this.page.route('**/.auth/me', async route => {
+            const mockAuthResponse = {
+                clientPrincipal: {
+                    identityProvider: 'google',
+                    userId: `test-${email.replace(/[^a-zA-Z0-9]/g, '')}`,
+                    userDetails: email,
+                    userRoles: ['authenticated', 'anonymous'],
+                    claims: [
+                        { typ: 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress', val: email },
+                        { typ: 'email', val: email },
+                        { typ: 'name', val: email.split('@')[0] }
+                    ]
+                }
+            };
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify(mockAuthResponse)
+            });
+        });
+
+        // Intercept all API requests and add the test auth header
         await this.page.route('**/api/**', async route => {
             const headers = {
                 ...route.request().headers(),
@@ -120,7 +143,7 @@ export class AdminPage {
             await route.continue({ headers });
         });
 
-        // Reload the page to ensure auth state is refreshed
+        // Reload the page to ensure auth state is refreshed with mocked auth
         await this.page.reload();
         await this.page.waitForLoadState('networkidle');
 

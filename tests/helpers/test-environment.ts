@@ -61,7 +61,7 @@ export class TestEnvironment {
 
   /**
    * Authenticate via sign-in button on any page (for non-admin auth flows).
-   * - Cloud: Sets up test auth bypass header routing
+   * - Cloud: Sets up test auth bypass header routing and mocks /.auth/me
    * - Local: Clicks sign-in and goes through mock auth form
    * @param page - Playwright page object
    * @param email - Email to authenticate as (defaults to adminEmail)
@@ -72,6 +72,29 @@ export class TestEnvironment {
 
     if (this.isCloudEnvironment) {
       console.log(`Cloud auth: Setting up test auth bypass for ${authEmail}`);
+
+      // Mock /.auth/me to make frontend think user is logged in
+      await page.route('**/.auth/me', async route => {
+        const mockAuthResponse = {
+          clientPrincipal: {
+            identityProvider: 'google',
+            userId: `test-${authEmail.replace(/[^a-zA-Z0-9]/g, '')}`,
+            userDetails: authEmail,
+            userRoles: ['authenticated', 'anonymous'],
+            claims: [
+              { typ: 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress', val: authEmail },
+              { typ: 'email', val: authEmail },
+              { typ: 'name', val: authEmail.split('@')[0] }
+            ]
+          }
+        };
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(mockAuthResponse)
+        });
+      });
+
       // Set up request interception to add test auth header
       await page.route('**/api/**', async route => {
         const headers = {
@@ -80,7 +103,7 @@ export class TestEnvironment {
         };
         await route.continue({ headers });
       });
-      // Reload to apply
+      // Reload to apply mocked auth
       await page.reload();
       await page.waitForLoadState('networkidle');
       console.log('Test auth bypass configured');
