@@ -42,26 +42,18 @@ jobs:
       - name: Copy staticwebapp.config.json to wwwroot
         run: cp src/AgainstTheSpread.Web/wwwroot/staticwebapp.config.json publish/web/wwwroot/
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install SWA CLI
-        run: npm install -g @azure/static-web-apps-cli
-
       - name: Deploy to PR Preview Environment
         id: deploy
-        run: |
-          # Deploy to a preview environment (staging slot)
-          swa deploy ./publish/web/wwwroot \
-            --api-location ./publish/api \
-            --api-language dotnetisolated \
-            --api-version 8.0 \
-            --deployment-token "${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DEV }}" \
-            --env "pr-${{ github.event.pull_request.number }}"
-        env:
-          SWA_CLI_DEPLOYMENT_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DEV }}
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DEV }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: 'upload'
+          app_location: 'publish/web/wwwroot'
+          api_location: 'publish/api'
+          output_location: ''
+          skip_app_build: true
+          skip_api_build: true
 
       - name: Get Preview URL
         id: get_url
@@ -230,13 +222,9 @@ jobs:
     runs-on: ubuntu-latest
     name: Cleanup Preview
     steps:
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Close Pull Request Preview
+        uses: Azure/static-web-apps-deploy@v1
         with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Cleanup message
-        run: |
-          # Azure SWA automatically cleans up staging environments when PRs close
-          # This job is kept for documentation and potential manual cleanup
-          echo "PR #${{ github.event.pull_request.number }} closed - Azure SWA will automatically cleanup the preview environment"
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DEV }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: 'close'

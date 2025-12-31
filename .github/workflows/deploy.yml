@@ -105,24 +105,16 @@ jobs:
           name: app-artifacts
           path: publish/
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install SWA CLI
-        run: npm install -g @azure/static-web-apps-cli
-
       - name: Deploy to Azure Static Web Apps (Dev)
-        run: |
-          swa deploy ./publish/web/wwwroot \
-            --api-location ./publish/api \
-            --api-language dotnetisolated \
-            --api-version 8.0 \
-            --deployment-token "${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DEV }}" \
-            --env production
-        env:
-          SWA_CLI_DEPLOYMENT_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DEV }}
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DEV }}
+          action: 'upload'
+          app_location: 'publish/web/wwwroot'
+          api_location: 'publish/api'
+          output_location: ''
+          skip_app_build: true
+          skip_api_build: true
 
       - name: Output Dev URL
         run: echo "Deployed to ${{ env.DEV_URL }}"
@@ -208,24 +200,16 @@ jobs:
           name: app-artifacts
           path: publish/
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install SWA CLI
-        run: npm install -g @azure/static-web-apps-cli
-
       - name: Deploy to Azure Static Web Apps (Prod)
-        run: |
-          swa deploy ./publish/web/wwwroot \
-            --api-location ./publish/api \
-            --api-language dotnetisolated \
-            --api-version 8.0 \
-            --deployment-token "${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PROD }}" \
-            --env production
-        env:
-          SWA_CLI_DEPLOYMENT_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PROD }}
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PROD }}
+          action: 'upload'
+          app_location: 'publish/web/wwwroot'
+          api_location: 'publish/api'
+          output_location: ''
+          skip_app_build: true
+          skip_api_build: true
 
       - name: Output Prod URL
         run: echo "Deployed to ${{ env.PROD_URL }}"
