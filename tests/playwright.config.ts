@@ -26,9 +26,9 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
 
-    // Increase timeouts for slower operations (longer for CI)
-    actionTimeout: process.env.CI ? 30000 : 15000,
-    navigationTimeout: process.env.CI ? 60000 : 30000,
+    // Increase timeouts for slower operations (longer for CI/cloud environments)
+    actionTimeout: process.env.CI ? 45000 : 15000,
+    navigationTimeout: process.env.CI ? 90000 : 30000,
   },
 
   projects: [

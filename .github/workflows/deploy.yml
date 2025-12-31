@@ -1,0 +1,231 @@
+name: Build, Test & Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'infrastructure/terraform/**'
+  # Run after successful terraform apply when infrastructure changes
+  workflow_run:
+    workflows: ["Terraform Apply"]
+    types:
+      - completed
+    branches:
+      - main
+  # Allow calling from other workflows
+  workflow_call:
+  # Allow manual trigger
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  NODE_VERSION: '20'
+  DEV_URL: 'https://blue-smoke-0b4410710.2.azurestaticapps.net'
+  PROD_URL: 'https://ashy-pebble-07e5d0b10.2.azurestaticapps.net'
+
+jobs:
+  # Job 1: Run all unit tests
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    # Skip if workflow_run didn't succeed
+    if: |
+      (github.event_name != 'workflow_run') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          lfs: false
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || '' }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore
+
+      - name: Run unit tests
+        run: dotnet test --no-build --verbosity normal
+
+  # Job 2: Build once and upload artifacts
+  build:
+    name: Build & Package
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          lfs: false
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || '' }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Build and Publish Web Project
+        run: dotnet publish src/AgainstTheSpread.Web/AgainstTheSpread.Web.csproj -c Release -o publish/web
+
+      - name: Build and Publish Functions Project
+        run: dotnet publish src/AgainstTheSpread.Functions/AgainstTheSpread.Functions.csproj -c Release -o publish/api
+
+      - name: Copy staticwebapp.config.json to wwwroot
+        run: cp src/AgainstTheSpread.Web/wwwroot/staticwebapp.config.json publish/web/wwwroot/
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-artifacts
+          path: publish/
+          retention-days: 1
+
+  # Job 3: Deploy to Dev environment
+  deploy-dev:
+    name: Deploy to Dev
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      dev_url: ${{ env.DEV_URL }}
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: app-artifacts
+          path: publish/
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install SWA CLI
+        run: npm install -g @azure/static-web-apps-cli
+
+      - name: Deploy to Azure Static Web Apps (Dev)
+        run: |
+          swa deploy ./publish/web/wwwroot \
+            --api-location ./publish/api \
+            --api-language dotnet \
+            --api-version 8.0 \
+            --deployment-token "${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DEV }}" \
+            --env production
+        env:
+          SWA_CLI_DEPLOYMENT_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DEV }}
+
+      - name: Output Dev URL
+        run: echo "Deployed to ${{ env.DEV_URL }}"
+
+  # Job 4: Wait for Dev deployment to be ready
+  wait-for-dev:
+    name: Wait for Dev
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for dev deployment to be accessible
+        run: |
+          DEV_URL="${{ env.DEV_URL }}"
+          echo "Waiting for $DEV_URL to be ready..."
+
+          for i in {1..30}; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$DEV_URL" || echo "000")
+            if [[ "$HTTP_CODE" =~ ^(200|301|302)$ ]]; then
+              echo "Dev environment is ready! (HTTP $HTTP_CODE)"
+              exit 0
+            fi
+            echo "Attempt $i/30: Dev not ready yet (HTTP $HTTP_CODE), waiting 10 seconds..."
+            sleep 10
+          done
+
+          echo "Dev deployment failed to become accessible after 5 minutes"
+          exit 1
+
+  # Job 5: Run E2E tests against Dev environment
+  e2e-tests:
+    name: E2E Tests (Dev)
+    needs: [deploy-dev, wait-for-dev]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || '' }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Playwright dependencies
+        working-directory: tests
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run Playwright E2E tests against Dev
+        working-directory: tests
+        run: npx playwright test --reporter=list,html
+        env:
+          BASE_URL: ${{ env.DEV_URL }}
+          CI: true
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: tests/playwright-report/
+          retention-days: 7
+
+      - name: Upload test artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-artifacts
+          path: tests/test-results/
+          retention-days: 7
+
+  # Job 6: Deploy to Prod (automatic after E2E passes)
+  deploy-prod:
+    name: Deploy to Prod
+    needs: [build, e2e-tests]
+    runs-on: ubuntu-latest
+    # NO environment protection - E2E tests passing IS the approval gate
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: app-artifacts
+          path: publish/
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install SWA CLI
+        run: npm install -g @azure/static-web-apps-cli
+
+      - name: Deploy to Azure Static Web Apps (Prod)
+        run: |
+          swa deploy ./publish/web/wwwroot \
+            --api-location ./publish/api \
+            --api-language dotnet \
+            --api-version 8.0 \
+            --deployment-token "${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PROD }}" \
+            --env production
+        env:
+          SWA_CLI_DEPLOYMENT_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PROD }}
+
+      - name: Output Prod URL
+        run: echo "Deployed to ${{ env.PROD_URL }}"
