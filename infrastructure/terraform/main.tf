@@ -10,7 +10,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.0"
+      version = ">= 3.98.0"  # Required for app_settings on static_web_app
     }
   }
 
@@ -135,54 +135,60 @@ resource "azurerm_mssql_firewall_rule" "allow_azure_services" {
   end_ip_address   = "0.0.0.0"
 }
 
-#------------------------------------------------------------------------------
-# App Service Plan (Consumption)
-#------------------------------------------------------------------------------
-resource "azurerm_service_plan" "main" {
-  name                = "asp-${local.name_suffix}"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-  os_type             = "Linux"
-  sku_name            = "Y1"
-  tags                = local.tags
-}
-
-#------------------------------------------------------------------------------
-# Function App
-#------------------------------------------------------------------------------
-resource "azurerm_linux_function_app" "main" {
-  name                = "func-${local.name_suffix}"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-  service_plan_id     = azurerm_service_plan.main.id
-
-  storage_account_name       = azurerm_storage_account.main.name
-  storage_account_access_key = azurerm_storage_account.main.primary_access_key
-
-  site_config {
-    application_stack {
-      dotnet_version              = "8.0"
-      use_dotnet_isolated_runtime = true
-    }
-
-    cors {
-      allowed_origins = ["https://${azurerm_static_web_app.main.default_host_name}"]
-    }
-  }
-
-  app_settings = {
-    "FUNCTIONS_WORKER_RUNTIME"              = "dotnet-isolated"
-    "APPINSIGHTS_INSTRUMENTATIONKEY"        = azurerm_application_insights.main.instrumentation_key
-    "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
-    "AzureWebJobsStorage"                   = azurerm_storage_account.main.primary_connection_string
-    "AZURE_STORAGE_CONNECTION_STRING"       = azurerm_storage_account.main.primary_connection_string
-    "WEBSITE_RUN_FROM_PACKAGE"              = "1"
-    "SqlConnectionString"                   = "Server=tcp:${azurerm_mssql_server.main.fully_qualified_domain_name},1433;Initial Catalog=${azurerm_mssql_database.main.name};Persist Security Info=False;User ID=${var.sql_admin_login};Password=${var.sql_admin_password};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
-    "ADMIN_EMAILS"                          = var.admin_emails
-  }
-
-  tags = local.tags
-}
+# NOTE: The standalone Function App and Service Plan below are NOT NEEDED when using
+# Azure Static Web Apps managed functions (deployed via SWA CLI with --api-location).
+# SWA creates and manages its own Function App internally.
+# These resources are commented out but kept for reference. They can be deleted once
+# we confirm SWA managed functions are working correctly with the app_settings above.
+#
+# #------------------------------------------------------------------------------
+# # App Service Plan (Consumption) - NOT NEEDED for SWA managed functions
+# #------------------------------------------------------------------------------
+# resource "azurerm_service_plan" "main" {
+#   name                = "asp-${local.name_suffix}"
+#   location            = azurerm_resource_group.main.location
+#   resource_group_name = azurerm_resource_group.main.name
+#   os_type             = "Linux"
+#   sku_name            = "Y1"
+#   tags                = local.tags
+# }
+#
+# #------------------------------------------------------------------------------
+# # Function App - NOT NEEDED for SWA managed functions
+# #------------------------------------------------------------------------------
+# resource "azurerm_linux_function_app" "main" {
+#   name                = "func-${local.name_suffix}"
+#   location            = azurerm_resource_group.main.location
+#   resource_group_name = azurerm_resource_group.main.name
+#   service_plan_id     = azurerm_service_plan.main.id
+#
+#   storage_account_name       = azurerm_storage_account.main.name
+#   storage_account_access_key = azurerm_storage_account.main.primary_access_key
+#
+#   site_config {
+#     application_stack {
+#       dotnet_version              = "8.0"
+#       use_dotnet_isolated_runtime = true
+#     }
+#
+#     cors {
+#       allowed_origins = ["https://${azurerm_static_web_app.main.default_host_name}"]
+#     }
+#   }
+#
+#   app_settings = {
+#     "FUNCTIONS_WORKER_RUNTIME"              = "dotnet-isolated"
+#     "APPINSIGHTS_INSTRUMENTATIONKEY"        = azurerm_application_insights.main.instrumentation_key
+#     "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
+#     "AzureWebJobsStorage"                   = azurerm_storage_account.main.primary_connection_string
+#     "AZURE_STORAGE_CONNECTION_STRING"       = azurerm_storage_account.main.primary_connection_string
+#     "WEBSITE_RUN_FROM_PACKAGE"              = "1"
+#     "SqlConnectionString"                   = "Server=tcp:${azurerm_mssql_server.main.fully_qualified_domain_name},1433;Initial Catalog=${azurerm_mssql_database.main.name};Persist Security Info=False;User ID=${var.sql_admin_login};Password=${var.sql_admin_password};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+#     "ADMIN_EMAILS"                          = var.admin_emails
+#   }
+#
+#   tags = local.tags
+# }
 
 #------------------------------------------------------------------------------
 # Static Web App
@@ -194,4 +200,14 @@ resource "azurerm_static_web_app" "main" {
   sku_tier            = var.static_web_app_sku_tier
   sku_size            = var.static_web_app_sku_size
   tags                = local.tags
+
+  # App settings for managed functions deployed via SWA CLI
+  app_settings = {
+    "AZURE_STORAGE_CONNECTION_STRING"       = azurerm_storage_account.main.primary_connection_string
+    "AzureWebJobsStorage"                   = azurerm_storage_account.main.primary_connection_string
+    "SqlConnectionString"                   = "Server=tcp:${azurerm_mssql_server.main.fully_qualified_domain_name},1433;Initial Catalog=${azurerm_mssql_database.main.name};Persist Security Info=False;User ID=${var.sql_admin_login};Password=${var.sql_admin_password};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+    "ADMIN_EMAILS"                          = var.admin_emails
+    "APPINSIGHTS_INSTRUMENTATIONKEY"        = azurerm_application_insights.main.instrumentation_key
+    "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
+  }
 }

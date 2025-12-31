@@ -16,15 +16,16 @@ output "storage_connection_string" {
   sensitive   = true
 }
 
-output "function_app_name" {
-  description = "Name of the function app"
-  value       = azurerm_linux_function_app.main.name
-}
+# Commented out - using SWA managed functions instead of standalone function app
+# output "function_app_name" {
+#   description = "Name of the function app"
+#   value       = azurerm_linux_function_app.main.name
+# }
 
-output "function_app_url" {
-  description = "URL of the function app"
-  value       = "https://${azurerm_linux_function_app.main.default_hostname}"
-}
+# output "function_app_url" {
+#   description = "URL of the function app"
+#   value       = "https://${azurerm_linux_function_app.main.default_hostname}"
+# }
 
 output "static_web_app_name" {
   description = "Name of the static web app"
