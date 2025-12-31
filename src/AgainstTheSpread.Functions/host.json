@@ -11,16 +11,7 @@
     },
     "extensions": {
         "http": {
-            "routePrefix": "api"
-        }
-    },
-    "host": {
-        "cors": {
-            "allowedOrigins": [
-                "http://localhost:5158",
-                "https://localhost:5158"
-            ],
-            "supportCredentials": false
+            "routePrefix": ""
         }
     }
 }
