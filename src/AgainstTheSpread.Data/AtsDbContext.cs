@@ -32,6 +32,16 @@ public class AtsDbContext : DbContext
     public DbSet<Pick> Picks => Set<Pick>();
 
     /// <summary>
+    /// Gets or sets the BowlGames DbSet.
+    /// </summary>
+    public DbSet<BowlGameEntity> BowlGames => Set<BowlGameEntity>();
+
+    /// <summary>
+    /// Gets or sets the BowlPicks DbSet.
+    /// </summary>
+    public DbSet<BowlPickEntity> BowlPicks => Set<BowlPickEntity>();
+
+    /// <summary>
     /// Configures the model using entity configurations from this assembly.
     /// </summary>
     /// <param name="modelBuilder">The model builder.</param>

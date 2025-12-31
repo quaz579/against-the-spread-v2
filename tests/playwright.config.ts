@@ -20,15 +20,15 @@ export default defineConfig({
   ],
 
   use: {
-    // Use SWA CLI URL (port 4280) which provides mock authentication
-    baseURL: 'http://localhost:4280',
+    // Use BASE_URL env var for CI/preview environments, fallback to local SWA CLI
+    baseURL: process.env.BASE_URL || 'http://localhost:4280',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
 
-    // Increase timeouts for slower operations
-    actionTimeout: 15000,
-    navigationTimeout: 30000,
+    // Increase timeouts for slower operations (longer for CI)
+    actionTimeout: process.env.CI ? 30000 : 15000,
+    navigationTimeout: process.env.CI ? 60000 : 30000,
   },
 
   projects: [
