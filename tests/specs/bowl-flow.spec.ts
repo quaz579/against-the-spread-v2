@@ -226,7 +226,7 @@ test.describe('Bowl Picks Complete Flow', () => {
 
     // Navigate and login
     await adminPage.goto();
-    await adminPage.loginWithMockAuth(testEnv.adminEmail);
+    await testEnv.authenticate(adminPage);
 
     // Scroll to bowl section
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
@@ -251,7 +251,7 @@ test.describe('Bowl Picks Complete Flow', () => {
 
     // First upload bowl lines
     await adminPage.goto();
-    await adminPage.loginWithMockAuth(testEnv.adminEmail);
+    await testEnv.authenticate(adminPage);
     
     try {
       await adminPage.uploadBowlLinesFile(bowlLinesFile, TEST_YEAR);

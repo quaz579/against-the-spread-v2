@@ -355,9 +355,13 @@ export class AdminPage {
 
     /**
      * Logout from admin
+     * In cloud mode, this also clears the /.auth/me mock to properly simulate logout
      */
     async logout(): Promise<void> {
         if (await this.logoutButton.isVisible()) {
+            // Remove the /.auth/me mock so frontend sees actual logout state
+            await this.page.unroute('**/.auth/me');
+
             await this.logoutButton.click();
             await this.page.waitForLoadState('networkidle');
         }

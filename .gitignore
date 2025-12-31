@@ -172,3 +172,4 @@ test-output/
 generated-picks.xlsx
 *.deb
 build/
+publish/
