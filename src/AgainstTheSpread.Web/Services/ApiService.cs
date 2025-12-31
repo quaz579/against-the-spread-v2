@@ -646,4 +646,115 @@ public class ApiService
         public bool? IsWin { get; set; }
         public bool HasResult { get; set; }
     }
+
+    // ============ Sports Data Sync Methods ============
+
+    /// <summary>
+    /// Get the status of the sports data provider configuration
+    /// </summary>
+    public async Task<SyncStatusResponse?> GetSyncStatusAsync()
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<SyncStatusResponse>("api/sync/status");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get sync status");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Sync weekly games from CFBD API (admin only)
+    /// </summary>
+    public async Task<SyncResponse?> SyncWeeklyGamesAsync(int week, int year)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsync($"api/sync/games/{week}?year={year}", null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadFromJsonAsync<SyncResponse>();
+            }
+
+            var errorContent = await response.Content.ReadAsStringAsync();
+            _logger.LogWarning("Failed to sync weekly games: {StatusCode} - {Content}",
+                response.StatusCode, errorContent);
+
+            return new SyncResponse
+            {
+                Success = false,
+                Message = response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable
+                    ? "Sports data provider not configured. Please set CFBD_API_KEY."
+                    : $"Server error: {response.StatusCode}"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception syncing weekly games for week {Week}, year {Year}", week, year);
+            return new SyncResponse
+            {
+                Success = false,
+                Message = $"Error: {ex.Message}"
+            };
+        }
+    }
+
+    /// <summary>
+    /// Sync bowl games from CFBD API (admin only)
+    /// </summary>
+    public async Task<SyncResponse?> SyncBowlGamesAsync(int year)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsync($"api/sync/bowl-games?year={year}", null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadFromJsonAsync<SyncResponse>();
+            }
+
+            var errorContent = await response.Content.ReadAsStringAsync();
+            _logger.LogWarning("Failed to sync bowl games: {StatusCode} - {Content}",
+                response.StatusCode, errorContent);
+
+            return new SyncResponse
+            {
+                Success = false,
+                Message = response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable
+                    ? "Sports data provider not configured. Please set CFBD_API_KEY."
+                    : $"Server error: {response.StatusCode}"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception syncing bowl games for year {Year}", year);
+            return new SyncResponse
+            {
+                Success = false,
+                Message = $"Error: {ex.Message}"
+            };
+        }
+    }
+
+    // DTOs for sync
+    public class SyncStatusResponse
+    {
+        public string Provider { get; set; } = string.Empty;
+        public bool IsConfigured { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
+
+    public class SyncResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public string? Provider { get; set; }
+        public int? Year { get; set; }
+        public int? Week { get; set; }
+        public int GamesSynced { get; set; }
+        public int GamesFound { get; set; }
+    }
 }

@@ -73,6 +73,14 @@ variable "enable_test_auth" {
   default     = false
 }
 
+# CFBD API Key (College Football Data)
+variable "cfbd_api_key" {
+  description = "API key for College Football Data API (optional - sync features disabled if not set)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 # Tags
 variable "extra_tags" {
   description = "Additional tags to apply to resources"

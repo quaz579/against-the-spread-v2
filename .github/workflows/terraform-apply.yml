@@ -63,6 +63,7 @@ jobs:
             -var="sql_admin_login=${{ secrets.TF_VAR_SQL_ADMIN_LOGIN }}" \
             -var="sql_admin_password=${{ secrets.TF_VAR_SQL_ADMIN_PASSWORD }}" \
             -var="admin_emails=${{ secrets.TF_VAR_ADMIN_EMAILS_DEV }}" \
+            -var="cfbd_api_key=${{ secrets.TF_VAR_CFBD_API_KEY }}" \
             -auto-approve
 
   apply-prod:
@@ -102,6 +103,7 @@ jobs:
             -var="sql_admin_login=${{ secrets.TF_VAR_SQL_ADMIN_LOGIN }}" \
             -var="sql_admin_password=${{ secrets.TF_VAR_SQL_ADMIN_PASSWORD }}" \
             -var="admin_emails=${{ secrets.TF_VAR_ADMIN_EMAILS_PROD }}" \
+            -var="cfbd_api_key=${{ secrets.TF_VAR_CFBD_API_KEY }}" \
             -auto-approve
 
   # This job provides a single status that other workflows can depend on

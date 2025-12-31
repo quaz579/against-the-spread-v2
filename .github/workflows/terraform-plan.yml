@@ -54,6 +54,7 @@ jobs:
             -var="sql_admin_login=${{ secrets.TF_VAR_SQL_ADMIN_LOGIN }}" \
             -var="sql_admin_password=${{ secrets.TF_VAR_SQL_ADMIN_PASSWORD }}" \
             -var="admin_emails=${{ secrets.TF_VAR_ADMIN_EMAILS }}" \
+            -var="cfbd_api_key=${{ secrets.TF_VAR_CFBD_API_KEY }}" \
             -no-color \
             -out=dev.tfplan 2>&1 | tee dev-plan-output.txt
           echo "exitcode=$?" >> $GITHUB_OUTPUT
@@ -94,6 +95,7 @@ jobs:
             -var="sql_admin_login=${{ secrets.TF_VAR_SQL_ADMIN_LOGIN }}" \
             -var="sql_admin_password=${{ secrets.TF_VAR_SQL_ADMIN_PASSWORD }}" \
             -var="admin_emails=${{ secrets.TF_VAR_ADMIN_EMAILS }}" \
+            -var="cfbd_api_key=${{ secrets.TF_VAR_CFBD_API_KEY }}" \
             -no-color \
             -out=prod.tfplan 2>&1 | tee prod-plan-output.txt
           echo "exitcode=$?" >> $GITHUB_OUTPUT

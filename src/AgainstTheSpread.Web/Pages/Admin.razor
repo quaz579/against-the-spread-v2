@@ -349,6 +349,134 @@
                         }
                     </div>
                 </div>
+
+                <!-- CFBD API Sync Section -->
+                <hr class="my-5" />
+                <h2 class="mb-4">🔄 Sync from CFBD API</h2>
+
+                @if (!string.IsNullOrEmpty(syncErrorMessage))
+                {
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <strong>Error!</strong> @syncErrorMessage
+                        <button type="button" class="btn-close" @onclick="ClearSyncError"></button>
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(syncSuccessMessage))
+                {
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <strong>Success!</strong> @syncSuccessMessage
+                        <button type="button" class="btn-close" @onclick="ClearSyncSuccess"></button>
+                    </div>
+                }
+
+                <div class="card shadow-sm mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">API Status</h5>
+                        <p class="text-muted">Check if the College Football Data API is configured.</p>
+
+                        @if (syncStatus == null)
+                        {
+                            <button class="btn btn-outline-secondary" @onclick="CheckSyncStatus" disabled="@isCheckingStatus">
+                                @if (isCheckingStatus)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                    <span>Checking...</span>
+                                }
+                                else
+                                {
+                                    <span>Check API Status</span>
+                                }
+                            </button>
+                        }
+                        else
+                        {
+                            <div class="alert @(syncStatus.IsConfigured ? "alert-success" : "alert-warning") mb-0">
+                                <strong>Provider:</strong> @syncStatus.Provider<br />
+                                <strong>Status:</strong> @(syncStatus.IsConfigured ? "Configured ✓" : "Not Configured")<br />
+                                <small class="text-muted">@syncStatus.Message</small>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card shadow-sm">
+                            <div class="card-body">
+                                <h5 class="card-title">Sync Weekly Games</h5>
+                                <p class="text-muted">Pull weekly game lines and spreads from CFBD.</p>
+
+                                <div class="row mb-3">
+                                    <div class="col-6">
+                                        <label for="syncWeek" class="form-label">Week</label>
+                                        <select class="form-select" id="syncWeek" @bind="syncWeek">
+                                            @for (int i = 1; i <= 17; i++)
+                                            {
+                                                <option value="@i">Week @i</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <label for="syncYear" class="form-label">Year</label>
+                                        <input type="number" class="form-control" id="syncYear" @bind="syncYear" min="2020" max="2030" />
+                                    </div>
+                                </div>
+
+                                <button class="btn btn-primary w-100" @onclick="SyncWeeklyGames" disabled="@isSyncingWeekly">
+                                    @if (isSyncingWeekly)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                        <span>Syncing...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>🔄 Sync Week @syncWeek</span>
+                                    }
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card shadow-sm">
+                            <div class="card-body">
+                                <h5 class="card-title">Sync Bowl Games</h5>
+                                <p class="text-muted">Pull bowl game lines and spreads from CFBD.</p>
+
+                                <div class="mb-3">
+                                    <label for="syncBowlYear" class="form-label">Bowl Season Year</label>
+                                    <input type="number" class="form-control" id="syncBowlYear" @bind="syncBowlYear" min="2020" max="2030" />
+                                </div>
+
+                                <button class="btn btn-success w-100" @onclick="SyncBowlGames" disabled="@isSyncingBowl">
+                                    @if (isSyncingBowl)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                        <span>Syncing...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>🏆 Sync Bowl Games</span>
+                                    }
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm mt-4">
+                    <div class="card-body">
+                        <h5 class="card-title">💡 About CFBD Sync</h5>
+                        <ul class="mb-0">
+                            <li>Data is pulled from the <a href="https://collegefootballdata.com" target="_blank">College Football Data API</a></li>
+                            <li>Spreads are automatically converted (positive line on home team = away team is favorite)</li>
+                            <li>Existing games with matching teams are updated; new games are created</li>
+                            <li>Requires <code>CFBD_API_KEY</code> environment variable to be configured</li>
+                            <li>Free tier allows 1,000 requests/month</li>
+                        </ul>
+                    </div>
+                </div>
             }
         </div>
     </div>
@@ -381,6 +509,17 @@
     private string? resultsSuccessMessage;
     private List<ApiService.GameResultDto>? gamesForResults;
     private Dictionary<int, ScoreEntry> gameScores = new();
+
+    // CFBD Sync fields
+    private int syncWeek = 1;
+    private int syncYear = DateTime.Now.Year;
+    private int syncBowlYear = DateTime.Now.Year;
+    private bool isCheckingStatus = false;
+    private bool isSyncingWeekly = false;
+    private bool isSyncingBowl = false;
+    private string? syncErrorMessage;
+    private string? syncSuccessMessage;
+    private ApiService.SyncStatusResponse? syncStatus;
 
     protected override async Task OnInitializedAsync()
     {
@@ -722,5 +861,101 @@
     {
         public int? FavoriteScore { get; set; }
         public int? UnderdogScore { get; set; }
+    }
+
+    // CFBD Sync methods
+    private async Task CheckSyncStatus()
+    {
+        isCheckingStatus = true;
+        ClearSyncMessages();
+
+        try
+        {
+            syncStatus = await ApiService.GetSyncStatusAsync();
+            if (syncStatus == null)
+            {
+                syncErrorMessage = "Failed to check API status. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            syncErrorMessage = $"Error checking status: {ex.Message}";
+        }
+        finally
+        {
+            isCheckingStatus = false;
+        }
+    }
+
+    private async Task SyncWeeklyGames()
+    {
+        isSyncingWeekly = true;
+        ClearSyncMessages();
+
+        try
+        {
+            var response = await ApiService.SyncWeeklyGamesAsync(syncWeek, syncYear);
+
+            if (response?.Success == true)
+            {
+                syncSuccessMessage = $"Synced {response.GamesSynced} games for Week {syncWeek}, {syncYear} from {response.Provider}";
+            }
+            else
+            {
+                syncErrorMessage = response?.Message ?? "Failed to sync weekly games. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            syncErrorMessage = $"Error syncing weekly games: {ex.Message}";
+        }
+        finally
+        {
+            isSyncingWeekly = false;
+        }
+    }
+
+    private async Task SyncBowlGames()
+    {
+        isSyncingBowl = true;
+        ClearSyncMessages();
+
+        try
+        {
+            var response = await ApiService.SyncBowlGamesAsync(syncBowlYear);
+
+            if (response?.Success == true)
+            {
+                syncSuccessMessage = $"Synced {response.GamesSynced} bowl games for {syncBowlYear} from {response.Provider}";
+            }
+            else
+            {
+                syncErrorMessage = response?.Message ?? "Failed to sync bowl games. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            syncErrorMessage = $"Error syncing bowl games: {ex.Message}";
+        }
+        finally
+        {
+            isSyncingBowl = false;
+        }
+    }
+
+    private void ClearSyncMessages()
+    {
+        syncErrorMessage = null;
+        syncSuccessMessage = null;
+    }
+
+    private void ClearSyncError()
+    {
+        syncErrorMessage = null;
+    }
+
+    private void ClearSyncSuccess()
+    {
+        syncSuccessMessage = null;
     }
 }
