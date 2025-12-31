@@ -103,7 +103,32 @@ export class AdminPage {
     }
 
     /**
-     * Login using SWA CLI mock authentication
+     * Login using test auth bypass for cloud E2E testing.
+     * Sets X-Test-User-Email header on all API requests.
+     * Only works when ENABLE_TEST_AUTH=true in the cloud environment.
+     * @param email - Email to use for test auth (should match ADMIN_EMAILS)
+     */
+    async loginWithTestAuth(email: string): Promise<void> {
+        console.log(`Setting up test auth bypass for email: ${email}`);
+
+        // Intercept all requests and add the test auth header
+        await this.page.route('**/api/**', async route => {
+            const headers = {
+                ...route.request().headers(),
+                'X-Test-User-Email': email
+            };
+            await route.continue({ headers });
+        });
+
+        // Reload the page to ensure auth state is refreshed
+        await this.page.reload();
+        await this.page.waitForLoadState('networkidle');
+
+        console.log('Test auth bypass configured');
+    }
+
+    /**
+     * Login using SWA CLI mock authentication (local development only)
      * @param email - Email to use for mock auth (should match ADMIN_EMAILS)
      */
     async loginWithMockAuth(email: string): Promise<void> {

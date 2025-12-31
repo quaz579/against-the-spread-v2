@@ -149,7 +149,7 @@ test.describe('Leaderboard Display Flow', () => {
 
             // Upload lines as admin
             await adminPage.goto();
-            await adminPage.loginWithMockAuth(testEnv.adminEmail);
+            await testEnv.authenticate(adminPage);
             await adminPage.uploadLinesFile(linesFile, TEST_WEEK, TEST_YEAR);
 
             // Don't logout - navigate to picks to submit as authenticated user
@@ -254,7 +254,7 @@ test.describe('Leaderboard Display Flow', () => {
 
             // Upload lines as admin
             await adminPage.goto();
-            await adminPage.loginWithMockAuth(testEnv.adminEmail);
+            await testEnv.authenticate(adminPage);
             await adminPage.uploadLinesFile(linesFile, TEST_WEEK, TEST_YEAR);
 
             // Submit picks

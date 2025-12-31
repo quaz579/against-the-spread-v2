@@ -55,8 +55,8 @@ test.describe('Complete User Flow', () => {
       // Navigate to admin page
       await adminPage.goto();
 
-      // Login using mock authentication
-      await adminPage.loginWithMockAuth(testEnv.adminEmail);
+      // Login using appropriate auth method for environment
+      await testEnv.authenticate(adminPage);
 
       // Upload lines file through admin UI
       await adminPage.uploadLinesFile(linesFile, TEST_WEEK_11, TEST_YEAR);
@@ -139,8 +139,8 @@ test.describe('Complete User Flow', () => {
       // Navigate to admin page
       await adminPage.goto();
 
-      // Login using mock authentication
-      await adminPage.loginWithMockAuth(testEnv.adminEmail);
+      // Login using appropriate auth method for environment
+      await testEnv.authenticate(adminPage);
 
       // Upload lines file through admin UI
       await adminPage.uploadLinesFile(linesFile, TEST_WEEK_12, TEST_YEAR);

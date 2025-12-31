@@ -42,6 +42,21 @@ public class AuthHelper
     public (bool IsAuthenticated, UserInfo? User, string? Error) ValidateAuth(
         IDictionary<string, IEnumerable<string>> headers)
     {
+        // Check for test auth bypass (dev/test environments only)
+        if (IsTestAuthEnabled() && headers.TryGetValue("X-Test-User-Email", out var testEmailValues))
+        {
+            var testEmail = testEmailValues.FirstOrDefault();
+            if (!string.IsNullOrEmpty(testEmail))
+            {
+                _logger.LogInformation("Test auth bypass: authenticating as {Email}", testEmail);
+                return (true, new UserInfo(
+                    UserId: $"test-{testEmail.GetHashCode():X8}",
+                    Email: testEmail,
+                    DisplayName: testEmail.Split('@')[0]
+                ), null);
+            }
+        }
+
         // Get the client principal from SWA auth header
         if (!headers.TryGetValue("X-MS-CLIENT-PRINCIPAL", out var principalValues))
         {
@@ -161,6 +176,13 @@ public class AuthHelper
         // Simple check for email format
         return value.Contains('@') && value.Contains('.');
     }
+
+    /// <summary>
+    /// Checks if test auth bypass is enabled.
+    /// Only enable this in dev/test environments, NEVER in production.
+    /// </summary>
+    private static bool IsTestAuthEnabled() =>
+        Environment.GetEnvironmentVariable("ENABLE_TEST_AUTH")?.Equals("true", StringComparison.OrdinalIgnoreCase) == true;
 }
 
 /// <summary>

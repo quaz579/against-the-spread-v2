@@ -42,7 +42,7 @@ test.describe('Authenticated Pick Submission Flow', () => {
             expect(fs.existsSync(linesFile), `Lines file should exist at ${linesFile}`).toBe(true);
 
             await adminPage.goto();
-            await adminPage.loginWithMockAuth(testEnv.adminEmail);
+            await testEnv.authenticate(adminPage);
             await adminPage.uploadLinesFile(linesFile, TEST_WEEK, TEST_YEAR);
 
             // Logout admin to test as regular user
@@ -54,36 +54,8 @@ test.describe('Authenticated Pick Submission Flow', () => {
             await picksPage.goto();
             await picksPage.waitForLoadingComplete();
 
-            // Look for the sign in button/prompt for unauthenticated users
-            const signInButton = page.getByRole('button', { name: /Sign in with Google/i });
-            const isUnauthenticated = await signInButton.isVisible().catch(() => false);
-
-            if (isUnauthenticated) {
-                // Click sign in and go through mock auth
-                await signInButton.click();
-                await page.waitForURL('**/.auth/login/google**', { timeout: 10000 });
-
-                // Fill mock auth form
-                const userDetailsInput = page.locator('input[name="userDetails"]');
-                await userDetailsInput.waitFor({ state: 'visible', timeout: 10000 });
-                await userDetailsInput.fill(testEnv.adminEmail);
-
-                // Fill claims with email
-                const claimsInput = page.locator('input[name="claims"]');
-                if (await claimsInput.isVisible()) {
-                    const emailClaim = JSON.stringify([{ typ: 'email', val: testEnv.adminEmail }]);
-                    await claimsInput.fill(emailClaim);
-                    await claimsInput.dispatchEvent('keyup');
-                }
-
-                await userDetailsInput.dispatchEvent('keyup');
-                await page.waitForTimeout(100);
-
-                // Submit mock auth
-                await page.getByRole('button', { name: 'Login' }).click();
-                await page.waitForURL('**/picks**', { timeout: 10000 });
-                await page.waitForLoadState('networkidle');
-            }
+            // Authenticate using environment-appropriate method
+            await testEnv.authenticateViaSignIn(page, testEnv.adminEmail, '**/picks**');
         });
 
         // === STEP 3: Select year and week to load games ===
@@ -143,7 +115,7 @@ test.describe('Authenticated Pick Submission Flow', () => {
             const linesFile = path.join(REFERENCE_DOCS, 'Week 11 Lines.xlsx');
 
             await adminPage.goto();
-            await adminPage.loginWithMockAuth(testEnv.adminEmail);
+            await testEnv.authenticate(adminPage);
             await adminPage.uploadLinesFile(linesFile, TEST_WEEK, TEST_YEAR);
             await adminPage.logout();
 
@@ -151,26 +123,8 @@ test.describe('Authenticated Pick Submission Flow', () => {
             await picksPage.goto();
             await picksPage.waitForLoadingComplete();
 
-            // Login if needed
-            const signInButton = page.getByRole('button', { name: /Sign in with Google/i });
-            if (await signInButton.isVisible().catch(() => false)) {
-                await signInButton.click();
-                await page.waitForURL('**/.auth/login/google**', { timeout: 10000 });
-
-                const userDetailsInput = page.locator('input[name="userDetails"]');
-                await userDetailsInput.fill(testEnv.adminEmail);
-
-                const claimsInput = page.locator('input[name="claims"]');
-                if (await claimsInput.isVisible()) {
-                    await claimsInput.fill(JSON.stringify([{ typ: 'email', val: testEnv.adminEmail }]));
-                    await claimsInput.dispatchEvent('keyup');
-                }
-
-                await userDetailsInput.dispatchEvent('keyup');
-                await page.getByRole('button', { name: 'Login' }).click();
-                await page.waitForURL('**/picks**', { timeout: 10000 });
-                await page.waitForLoadState('networkidle');
-            }
+            // Authenticate using environment-appropriate method
+            await testEnv.authenticateViaSignIn(page, testEnv.adminEmail, '**/picks**');
 
             // Select week and make picks
             await picksPage.selectWeek(TEST_YEAR, TEST_WEEK);
@@ -223,7 +177,7 @@ test.describe('Authenticated Pick Submission Flow', () => {
             const linesFile = path.join(REFERENCE_DOCS, 'Week 11 Lines.xlsx');
 
             await adminPage.goto();
-            await adminPage.loginWithMockAuth(testEnv.adminEmail);
+            await testEnv.authenticate(adminPage);
             await adminPage.uploadLinesFile(linesFile, TEST_WEEK, TEST_YEAR);
             await adminPage.logout();
         });
@@ -233,26 +187,8 @@ test.describe('Authenticated Pick Submission Flow', () => {
             await picksPage.goto();
             await picksPage.waitForLoadingComplete();
 
-            // Login if needed
-            const signInButton = page.getByRole('button', { name: /Sign in with Google/i });
-            if (await signInButton.isVisible().catch(() => false)) {
-                await signInButton.click();
-                await page.waitForURL('**/.auth/login/google**', { timeout: 10000 });
-
-                const userDetailsInput = page.locator('input[name="userDetails"]');
-                await userDetailsInput.fill(testEnv.adminEmail);
-
-                const claimsInput = page.locator('input[name="claims"]');
-                if (await claimsInput.isVisible()) {
-                    await claimsInput.fill(JSON.stringify([{ typ: 'email', val: testEnv.adminEmail }]));
-                    await claimsInput.dispatchEvent('keyup');
-                }
-
-                await userDetailsInput.dispatchEvent('keyup');
-                await page.getByRole('button', { name: 'Login' }).click();
-                await page.waitForURL('**/picks**', { timeout: 10000 });
-                await page.waitForLoadState('networkidle');
-            }
+            // Authenticate using environment-appropriate method
+            await testEnv.authenticateViaSignIn(page, testEnv.adminEmail, '**/picks**');
 
             await picksPage.selectWeek(TEST_YEAR, TEST_WEEK);
 
@@ -286,7 +222,7 @@ test.describe('Authenticated Pick Submission Flow', () => {
             const linesFile = path.join(REFERENCE_DOCS, 'Week 11 Lines.xlsx');
 
             await adminPage.goto();
-            await adminPage.loginWithMockAuth(testEnv.adminEmail);
+            await testEnv.authenticate(adminPage);
             await adminPage.uploadLinesFile(linesFile, TEST_WEEK, TEST_YEAR);
             await adminPage.logout();
         });
@@ -296,26 +232,8 @@ test.describe('Authenticated Pick Submission Flow', () => {
             await picksPage.goto();
             await picksPage.waitForLoadingComplete();
 
-            // Login if needed
-            const signInButton = page.getByRole('button', { name: /Sign in with Google/i });
-            if (await signInButton.isVisible().catch(() => false)) {
-                await signInButton.click();
-                await page.waitForURL('**/.auth/login/google**', { timeout: 10000 });
-
-                const userDetailsInput = page.locator('input[name="userDetails"]');
-                await userDetailsInput.fill(testEnv.adminEmail);
-
-                const claimsInput = page.locator('input[name="claims"]');
-                if (await claimsInput.isVisible()) {
-                    await claimsInput.fill(JSON.stringify([{ typ: 'email', val: testEnv.adminEmail }]));
-                    await claimsInput.dispatchEvent('keyup');
-                }
-
-                await userDetailsInput.dispatchEvent('keyup');
-                await page.getByRole('button', { name: 'Login' }).click();
-                await page.waitForURL('**/picks**', { timeout: 10000 });
-                await page.waitForLoadState('networkidle');
-            }
+            // Authenticate using environment-appropriate method
+            await testEnv.authenticateViaSignIn(page, testEnv.adminEmail, '**/picks**');
 
             await picksPage.selectWeek(TEST_YEAR, TEST_WEEK);
 

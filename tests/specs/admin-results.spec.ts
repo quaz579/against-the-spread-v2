@@ -41,7 +41,7 @@ test.describe('Admin Results Entry Flow', () => {
             expect(fs.existsSync(linesFile), `Lines file should exist at ${linesFile}`).toBe(true);
 
             await adminPage.goto();
-            await adminPage.loginWithMockAuth(testEnv.adminEmail);
+            await testEnv.authenticate(adminPage);
             await adminPage.uploadLinesFile(linesFile, TEST_WEEK, TEST_YEAR);
         });
 
@@ -97,7 +97,7 @@ test.describe('Admin Results Entry Flow', () => {
             const linesFile = path.join(REFERENCE_DOCS, 'Week 11 Lines.xlsx');
 
             await adminPage.goto();
-            await adminPage.loginWithMockAuth(testEnv.adminEmail);
+            await testEnv.authenticate(adminPage);
             await adminPage.uploadLinesFile(linesFile, TEST_WEEK, TEST_YEAR);
         });
 
@@ -167,7 +167,7 @@ test.describe('Admin Results Entry Flow', () => {
             const linesFile = path.join(REFERENCE_DOCS, 'Week 11 Lines.xlsx');
 
             await adminPage.goto();
-            await adminPage.loginWithMockAuth(testEnv.adminEmail);
+            await testEnv.authenticate(adminPage);
             await adminPage.uploadLinesFile(linesFile, TEST_WEEK, TEST_YEAR);
 
             // Load games
@@ -229,7 +229,7 @@ test.describe('Admin Results Entry Flow', () => {
             const linesFile = path.join(REFERENCE_DOCS, 'Week 11 Lines.xlsx');
 
             await adminPage.goto();
-            await adminPage.loginWithMockAuth(testEnv.adminEmail);
+            await testEnv.authenticate(adminPage);
             await adminPage.uploadLinesFile(linesFile, TEST_WEEK, TEST_YEAR);
         });
 
@@ -311,26 +311,8 @@ test.describe('Admin Results Entry Flow', () => {
         await test.step('Login as non-admin and attempt admin action', async () => {
             const nonAdminEmail = 'regular-user@example.com';
 
-            const loginButton = page.getByRole('button', { name: /Sign in with Google/i });
-            await loginButton.click();
-
-            await page.waitForURL('**/.auth/login/google**', { timeout: 10000 });
-
-            // Fill mock auth with non-admin email
-            const userDetailsInput = page.locator('input[name="userDetails"]');
-            await userDetailsInput.fill(nonAdminEmail);
-
-            const claimsInput = page.locator('input[name="claims"]');
-            if (await claimsInput.isVisible()) {
-                await claimsInput.fill(JSON.stringify([{ typ: 'email', val: nonAdminEmail }]));
-                await claimsInput.dispatchEvent('keyup');
-            }
-
-            await userDetailsInput.dispatchEvent('keyup');
-            await page.getByRole('button', { name: 'Login' }).click();
-
-            await page.waitForURL('**/admin**', { timeout: 10000 });
-            await page.waitForLoadState('networkidle');
+            // Authenticate using environment-appropriate method with non-admin email
+            await testEnv.authenticateViaSignIn(page, nonAdminEmail, '**/admin**');
         });
 
         // === STEP 3: Verify backend rejects non-admin API calls ===

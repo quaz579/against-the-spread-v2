@@ -66,6 +66,13 @@ variable "admin_emails" {
   default     = ""
 }
 
+# Test Auth Configuration (dev only)
+variable "enable_test_auth" {
+  description = "Enable test auth bypass for E2E testing (NEVER enable in production)"
+  type        = bool
+  default     = false
+}
+
 # Tags
 variable "extra_tags" {
   description = "Additional tags to apply to resources"

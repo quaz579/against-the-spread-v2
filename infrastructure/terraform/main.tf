@@ -203,11 +203,11 @@ resource "azurerm_static_web_app" "main" {
 
   # App settings for managed functions deployed via SWA CLI
   # Note: AzureWebJobsStorage is reserved/managed by SWA internally, so we don't set it here
-  app_settings = {
+  app_settings = merge({
     "AZURE_STORAGE_CONNECTION_STRING"       = azurerm_storage_account.main.primary_connection_string
     "SqlConnectionString"                   = "Server=tcp:${azurerm_mssql_server.main.fully_qualified_domain_name},1433;Initial Catalog=${azurerm_mssql_database.main.name};Persist Security Info=False;User ID=${var.sql_admin_login};Password=${var.sql_admin_password};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
     "ADMIN_EMAILS"                          = var.admin_emails
     "APPINSIGHTS_INSTRUMENTATIONKEY"        = azurerm_application_insights.main.instrumentation_key
     "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
-  }
+  }, var.enable_test_auth ? { "ENABLE_TEST_AUTH" = "true" } : {})
 }

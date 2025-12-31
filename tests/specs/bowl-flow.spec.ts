@@ -56,8 +56,8 @@ test.describe('Bowl Picks Complete Flow', () => {
         fullPage: true 
       });
 
-      // Login using mock authentication
-      await adminPage.loginWithMockAuth(testEnv.adminEmail);
+      // Login using appropriate auth method for environment
+      await testEnv.authenticate(adminPage);
 
       // Verify we're authenticated
       const isAuthenticated = await adminPage.isAuthenticated();

@@ -12,3 +12,6 @@ static_web_app_sku_tier = "Free"
 static_web_app_sku_size = "Free"
 sql_sku_name            = "Basic"
 sql_max_size_gb         = 2
+
+# Enable test auth bypass for E2E testing (dev only)
+enable_test_auth = true
