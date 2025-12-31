@@ -72,6 +72,29 @@ jobs:
           lfs: false
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || '' }}
 
+      # Modify staticwebapp.config.json to allow anonymous access to API routes
+      # This enables test auth bypass (X-Test-User-Email header) for E2E tests
+      # Function code still validates auth - this just allows requests through SWA platform layer
+      # IMPORTANT: This modification is DEV ONLY - prod uses the original authenticated-only config
+      - name: Enable test auth bypass for Dev
+        run: |
+          CONFIG_FILE="src/AgainstTheSpread.Web/wwwroot/staticwebapp.config.json"
+          echo "Modifying $CONFIG_FILE to allow anonymous access for test auth bypass..."
+
+          # Use jq to add "anonymous" to allowedRoles arrays for API routes
+          jq '
+            .routes = [.routes[] |
+              if (.route | test("^/api/")) then
+                .allowedRoles = ((.allowedRoles // []) + ["anonymous"] | unique)
+              else
+                .
+              end
+            ]
+          ' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
+
+          echo "Modified config:"
+          cat "$CONFIG_FILE"
+
       - name: Deploy to Azure Static Web Apps (Dev)
         uses: Azure/static-web-apps-deploy@v1
         with:
