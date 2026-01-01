@@ -454,13 +454,14 @@ Since we're using Azure SQL PITR (point-in-time restore):
 - [x] Update this document status to "Implemented"
 
 ### Follow-up Tasks
-- [ ] **Investigate E2E test failures** - dev steps are temporarily commented out
-  - See `docs/TODO.md` for details
-  - Uncomment `migrate-dev`, `deploy-dev`, `wait-for-dev`, `e2e-tests` in `deploy.yml`
-  - Change `migrate-prod` to depend on `e2e-tests` instead of `unit-tests`
+- [x] **E2E test failures investigated** - dev steps re-enabled
+  - Root cause: Picks page hides year selector when error occurs
+  - Fix: Picks.razor shows error message within week selection UI
+  - Dev deployment re-enabled in `deploy.yml`
+  - `migrate-prod` now depends on `e2e-tests` again
 
 ---
 
 *Created: January 1, 2025*
-*Updated: January 1, 2025*
-*Status: ✅ IMPLEMENTED (Prod migration working, dev steps temporarily disabled pending E2E fix)*
+*Updated: January 1, 2026*
+*Status: ✅ IMPLEMENTED (Full pipeline restored with E2E fix)*

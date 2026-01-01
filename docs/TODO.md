@@ -56,8 +56,9 @@
 
 - [ ] **E2E tests failing in CI** - Investigate and fix
   - Tests timing out or failing during deploy workflow
-  - Temporarily bypassed to test prod migrations
-  - Need to investigate root cause and fix before uncommenting deploy-dev/e2e-tests jobs
+  - Root cause: Picks page shows "No weeks available for 2026" and hides year selector
+  - Fix: Modified Picks.razor to show error message within week selection UI (year selector stays visible)
+  - Dev deployment re-enabled to test the fix
 
 ---
 

@@ -27,15 +27,16 @@
             <p class="mt-2">Loading games...</p>
         </div>
     }
-    else if (errorMessage != null)
-    {
-        <div class="alert alert-danger" role="alert">
-            <strong>Error:</strong> @errorMessage
-        </div>
-        <button class="btn btn-primary" @onclick="LoadAvailableWeeks">Retry</button>
-    }
     else if (currentWeekLines == null && gamesFromDb == null)
     {
+        <!-- Error Message (if any) -->
+        @if (errorMessage != null)
+        {
+            <div class="alert alert-warning" role="alert">
+                <strong>Note:</strong> @errorMessage
+            </div>
+        }
+
         <!-- Auth Status Banner -->
         @if (AuthStateService.IsAuthenticated)
         {

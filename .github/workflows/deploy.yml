@@ -87,176 +87,173 @@ jobs:
           path: ./efbundle
           retention-days: 1
 
-  # TODO: Uncomment ALL dev steps (migrate-dev, deploy-dev, wait-for-dev, e2e-tests) after fixing E2E test failures
-  # See docs/TODO.md for details on the E2E test investigation
+  # Job 2: Migrate Dev Database
+  migrate-dev:
+    name: Migrate Dev DB
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Migrations Bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: ef-migrations
 
-  # # Job 2: Migrate Dev Database
-  # migrate-dev:
-  #   name: Migrate Dev DB
-  #   needs: unit-tests
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Download Migrations Bundle
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: ef-migrations
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: '{"clientId":"${{ secrets.ARM_CLIENT_ID }}","clientSecret":"${{ secrets.ARM_CLIENT_SECRET }}","subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.ARM_TENANT_ID }}"}'
 
-  #     - name: Azure Login
-  #       uses: azure/login@v2
-  #       with:
-  #         creds: '{"clientId":"${{ secrets.ARM_CLIENT_ID }}","clientSecret":"${{ secrets.ARM_CLIENT_SECRET }}","subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.ARM_TENANT_ID }}"}'
+      - name: Get Runner IP
+        id: ip
+        uses: haythem/public-ip@v1.3
 
-  #     - name: Get Runner IP
-  #       id: ip
-  #       uses: haythem/public-ip@v1.3
+      - name: Add Firewall Rule
+        run: |
+          az sql server firewall-rule create \
+            --resource-group ${{ env.DEV_RESOURCE_GROUP }} \
+            --server ${{ env.DEV_SQL_SERVER }} \
+            --name GitHubActions-${{ github.run_id }} \
+            --start-ip-address ${{ steps.ip.outputs.ipv4 }} \
+            --end-ip-address ${{ steps.ip.outputs.ipv4 }}
+          echo "Waiting 30s for firewall rule to propagate..."
+          sleep 30
 
-  #     - name: Add Firewall Rule
-  #       run: |
-  #         az sql server firewall-rule create \
-  #           --resource-group ${{ env.DEV_RESOURCE_GROUP }} \
-  #           --server ${{ env.DEV_SQL_SERVER }} \
-  #           --name GitHubActions-${{ github.run_id }} \
-  #           --start-ip-address ${{ steps.ip.outputs.ipv4 }} \
-  #           --end-ip-address ${{ steps.ip.outputs.ipv4 }}
-  #         echo "Waiting 30s for firewall rule to propagate..."
-  #         sleep 30
+      - name: Apply Migrations to Dev
+        run: |
+          chmod +x ./efbundle
+          ./efbundle --connection "Server=tcp:${{ env.DEV_SQL_SERVER }}.database.windows.net,1433;Initial Catalog=${{ env.DEV_SQL_DATABASE }};Persist Security Info=False;User ID=${{ secrets.TF_VAR_SQL_ADMIN_LOGIN }};Password=${{ secrets.TF_VAR_SQL_ADMIN_PASSWORD }};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+        timeout-minutes: 5
 
-  #     - name: Apply Migrations to Dev
-  #       run: |
-  #         chmod +x ./efbundle
-  #         ./efbundle --connection "Server=tcp:${{ env.DEV_SQL_SERVER }}.database.windows.net,1433;Initial Catalog=${{ env.DEV_SQL_DATABASE }};Persist Security Info=False;User ID=${{ secrets.TF_VAR_SQL_ADMIN_LOGIN }};Password=${{ secrets.TF_VAR_SQL_ADMIN_PASSWORD }};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
-  #       timeout-minutes: 5
+      - name: Remove Firewall Rule
+        if: always()
+        run: |
+          az sql server firewall-rule delete \
+            --resource-group ${{ env.DEV_RESOURCE_GROUP }} \
+            --server ${{ env.DEV_SQL_SERVER }} \
+            --name GitHubActions-${{ github.run_id }}
 
-  #     - name: Remove Firewall Rule
-  #       if: always()
-  #       run: |
-  #         az sql server firewall-rule delete \
-  #           --resource-group ${{ env.DEV_RESOURCE_GROUP }} \
-  #           --server ${{ env.DEV_SQL_SERVER }} \
-  #           --name GitHubActions-${{ github.run_id }}
+  # Job 3: Deploy to Dev environment (Azure builds the code)
+  deploy-dev:
+    name: Deploy to Dev
+    needs: migrate-dev
+    runs-on: ubuntu-latest
+    outputs:
+      dev_url: ${{ env.DEV_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          lfs: false
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || '' }}
 
-  # # Job 3: Deploy to Dev environment (Azure builds the code)
-  # deploy-dev:
-  #   name: Deploy to Dev
-  #   needs: migrate-dev
-  #   runs-on: ubuntu-latest
-  #   outputs:
-  #     dev_url: ${{ env.DEV_URL }}
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         submodules: true
-  #         lfs: false
-  #         ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || '' }}
+      # Modify staticwebapp.config.json to allow anonymous access to API routes
+      # This enables test auth bypass (X-Test-User-Email header) for E2E tests
+      # Function code still validates auth - this just allows requests through SWA platform layer
+      # IMPORTANT: This modification is DEV ONLY - prod uses the original authenticated-only config
+      - name: Enable test auth bypass for Dev
+        run: |
+          CONFIG_FILE="src/AgainstTheSpread.Web/wwwroot/staticwebapp.config.json"
+          echo "Modifying $CONFIG_FILE to allow anonymous access for test auth bypass..."
 
-  #     # Modify staticwebapp.config.json to allow anonymous access to API routes
-  #     # This enables test auth bypass (X-Test-User-Email header) for E2E tests
-  #     # Function code still validates auth - this just allows requests through SWA platform layer
-  #     # IMPORTANT: This modification is DEV ONLY - prod uses the original authenticated-only config
-  #     - name: Enable test auth bypass for Dev
-  #       run: |
-  #         CONFIG_FILE="src/AgainstTheSpread.Web/wwwroot/staticwebapp.config.json"
-  #         echo "Modifying $CONFIG_FILE to allow anonymous access for test auth bypass..."
+          # Use jq to add "anonymous" to allowedRoles arrays for API routes
+          jq '
+            .routes = [.routes[] |
+              if (.route | test("^/api/")) then
+                .allowedRoles = ((.allowedRoles // []) + ["anonymous"] | unique)
+              else
+                .
+              end
+            ]
+          ' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
 
-  #         # Use jq to add "anonymous" to allowedRoles arrays for API routes
-  #         jq '
-  #           .routes = [.routes[] |
-  #             if (.route | test("^/api/")) then
-  #               .allowedRoles = ((.allowedRoles // []) + ["anonymous"] | unique)
-  #             else
-  #               .
-  #             end
-  #           ]
-  #         ' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
+          echo "Modified config:"
+          cat "$CONFIG_FILE"
 
-  #         echo "Modified config:"
-  #         cat "$CONFIG_FILE"
+      - name: Deploy to Azure Static Web Apps (Dev)
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DEV }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: 'upload'
+          app_location: 'src/AgainstTheSpread.Web'
+          api_location: 'src/AgainstTheSpread.Functions'
+          output_location: 'wwwroot'
 
-  #     - name: Deploy to Azure Static Web Apps (Dev)
-  #       uses: Azure/static-web-apps-deploy@v1
-  #       with:
-  #         azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DEV }}
-  #         repo_token: ${{ secrets.GITHUB_TOKEN }}
-  #         action: 'upload'
-  #         app_location: 'src/AgainstTheSpread.Web'
-  #         api_location: 'src/AgainstTheSpread.Functions'
-  #         output_location: 'wwwroot'
+      - name: Output Dev URL
+        run: echo "Deployed to ${{ env.DEV_URL }}"
 
-  #     - name: Output Dev URL
-  #       run: echo "Deployed to ${{ env.DEV_URL }}"
+  # Job 4: Wait for Dev deployment to be ready
+  wait-for-dev:
+    name: Wait for Dev
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for dev deployment to be accessible
+        run: |
+          DEV_URL="${{ env.DEV_URL }}"
+          echo "Waiting for $DEV_URL to be ready..."
 
-  # # Job 3: Wait for Dev deployment to be ready
-  # wait-for-dev:
-  #   name: Wait for Dev
-  #   needs: deploy-dev
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Wait for dev deployment to be accessible
-  #       run: |
-  #         DEV_URL="${{ env.DEV_URL }}"
-  #         echo "Waiting for $DEV_URL to be ready..."
+          for i in {1..30}; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$DEV_URL" || echo "000")
+            if [[ "$HTTP_CODE" =~ ^(200|301|302)$ ]]; then
+              echo "Dev environment is ready! (HTTP $HTTP_CODE)"
+              exit 0
+            fi
+            echo "Attempt $i/30: Dev not ready yet (HTTP $HTTP_CODE), waiting 10 seconds..."
+            sleep 10
+          done
 
-  #         for i in {1..30}; do
-  #           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$DEV_URL" || echo "000")
-  #           if [[ "$HTTP_CODE" =~ ^(200|301|302)$ ]]; then
-  #             echo "Dev environment is ready! (HTTP $HTTP_CODE)"
-  #             exit 0
-  #           fi
-  #           echo "Attempt $i/30: Dev not ready yet (HTTP $HTTP_CODE), waiting 10 seconds..."
-  #           sleep 10
-  #         done
+          echo "Dev deployment failed to become accessible after 5 minutes"
+          exit 1
 
-  #         echo "Dev deployment failed to become accessible after 5 minutes"
-  #         exit 1
+  # Job 5: Run E2E tests against Dev environment
+  e2e-tests:
+    name: E2E Tests (Dev)
+    needs: [deploy-dev, wait-for-dev]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || '' }}
 
-  # # Job 4: Run E2E tests against Dev environment
-  # e2e-tests:
-  #   name: E2E Tests (Dev)
-  #   needs: [deploy-dev, wait-for-dev]
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || '' }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
 
-  #     - name: Setup Node.js
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: ${{ env.NODE_VERSION }}
+      - name: Install Playwright dependencies
+        working-directory: tests
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
 
-  #     - name: Install Playwright dependencies
-  #       working-directory: tests
-  #       run: |
-  #         npm ci
-  #         npx playwright install --with-deps chromium
+      - name: Run Playwright E2E tests against Dev
+        working-directory: tests
+        run: npx playwright test --reporter=list,html
+        env:
+          BASE_URL: ${{ env.DEV_URL }}
+          CI: true
 
-  #     - name: Run Playwright E2E tests against Dev
-  #       working-directory: tests
-  #       run: npx playwright test --reporter=list,html
-  #       env:
-  #         BASE_URL: ${{ env.DEV_URL }}
-  #         CI: true
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: tests/playwright-report/
+          retention-days: 7
 
-  #     - name: Upload Playwright report
-  #       if: always()
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: playwright-report
-  #         path: tests/playwright-report/
-  #         retention-days: 7
+      - name: Upload test artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-artifacts
+          path: tests/test-results/
+          retention-days: 7
 
-  #     - name: Upload test artifacts on failure
-  #       if: failure()
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: test-artifacts
-  #         path: tests/test-results/
-  #         retention-days: 7
-
-  # Job 2: Migrate Prod Database (temporarily skips dev steps for faster feedback)
+  # Job 6: Migrate Prod Database
   migrate-prod:
     name: Migrate Prod DB
-    needs: unit-tests  # TODO: Change back to needs: e2e-tests after fixing E2E tests and uncommenting dev steps
+    needs: e2e-tests
     runs-on: ubuntu-latest
     steps:
       - name: Download Migrations Bundle
@@ -298,7 +295,7 @@ jobs:
             --server ${{ env.PROD_SQL_SERVER }} \
             --name GitHubActions-${{ github.run_id }}
 
-  # Job 3: Deploy to Prod (automatic after migrations, E2E tests temporarily disabled)
+  # Job 7: Deploy to Prod (automatic after E2E tests pass)
   deploy-prod:
     name: Deploy to Prod
     needs: migrate-prod
