@@ -130,8 +130,7 @@ jobs:
           az sql server firewall-rule delete \
             --resource-group ${{ env.DEV_RESOURCE_GROUP }} \
             --server ${{ env.DEV_SQL_SERVER }} \
-            --name GitHubActions-${{ github.run_id }} \
-            --yes
+            --name GitHubActions-${{ github.run_id }}
 
   # Job 3: Deploy to Dev environment (Azure builds the code)
   deploy-dev:
@@ -294,8 +293,7 @@ jobs:
           az sql server firewall-rule delete \
             --resource-group ${{ env.PROD_RESOURCE_GROUP }} \
             --server ${{ env.PROD_SQL_SERVER }} \
-            --name GitHubActions-${{ github.run_id }} \
-            --yes
+            --name GitHubActions-${{ github.run_id }}
 
   # Job 6: Deploy to Prod (automatic after E2E passes, Azure builds the code)
   deploy-prod:
