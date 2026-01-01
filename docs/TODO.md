@@ -48,10 +48,16 @@
 
 ## Critical Issues
 
-- [ ] **Prod database missing `Games` table** - EF migrations not applied
+- [x] **Prod database missing `Games` table** - EF migrations not applied
   - Error: `Invalid object name 'Games'`
   - Need to run database migrations on prod SQL server
   - Dev likely has the table, prod doesn't
+  - **RESOLVED:** Added automated EF migrations to CI/CD pipeline
+
+- [ ] **E2E tests failing in CI** - Investigate and fix
+  - Tests timing out or failing during deploy workflow
+  - Temporarily bypassed to test prod migrations
+  - Need to investigate root cause and fix before uncommenting deploy-dev/e2e-tests jobs
 
 ---
 
