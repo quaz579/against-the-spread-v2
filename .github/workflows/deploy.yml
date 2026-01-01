@@ -67,7 +67,7 @@ jobs:
 
       # Build EF Migrations Bundle for deployment
       - name: Install EF Core tools
-        run: dotnet tool install --global dotnet-ef
+        run: dotnet tool install --global dotnet-ef --version 8.0.*
 
       - name: Build Migrations Bundle
         run: |
