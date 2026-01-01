@@ -54,11 +54,10 @@
   - Dev likely has the table, prod doesn't
   - **RESOLVED:** Added automated EF migrations to CI/CD pipeline
 
-- [ ] **E2E tests failing in CI** - Investigate and fix
-  - Tests timing out or failing during deploy workflow
-  - Root cause: Picks page shows "No weeks available for 2026" and hides year selector
+- [x] **E2E tests failing in CI** - ✅ FIXED
+  - Root cause: Picks page showed "No weeks available for 2026" and hid year selector
   - Fix: Modified Picks.razor to show error message within week selection UI (year selector stays visible)
-  - Dev deployment re-enabled to test the fix
+  - Full CI/CD pipeline restored and working
 
 ---
 
