@@ -211,6 +211,7 @@ resource "azurerm_static_web_app" "main" {
     "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
   },
     var.enable_test_auth ? { "ENABLE_TEST_AUTH" = "true" } : {},
-    var.cfbd_api_key != "" ? { "CFBD_API_KEY" = var.cfbd_api_key } : {}
+    var.cfbd_api_key != "" ? { "CFBD_API_KEY" = var.cfbd_api_key } : {},
+    var.disable_game_locking ? { "DISABLE_GAME_LOCKING" = "true" } : {}
   )
 }

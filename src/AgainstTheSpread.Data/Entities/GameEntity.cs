@@ -89,10 +89,13 @@ public class GameEntity
 
     /// <summary>
     /// Indicates whether the game is locked for picks (kickoff time has passed).
+    /// Can be disabled via DISABLE_GAME_LOCKING environment variable for testing.
     /// This property is not stored in the database.
     /// </summary>
     [NotMapped]
-    public bool IsLocked => DateTime.UtcNow >= GameDate;
+    public bool IsLocked =>
+        Environment.GetEnvironmentVariable("DISABLE_GAME_LOCKING") != "true"
+        && DateTime.UtcNow >= GameDate;
 
     /// <summary>
     /// Indicates whether the game has a result entered.

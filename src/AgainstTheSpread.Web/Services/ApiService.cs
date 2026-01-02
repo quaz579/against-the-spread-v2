@@ -19,6 +19,24 @@ public class ApiService
         _logger = logger;
     }
 
+    // ============ Configuration Methods ============
+
+    /// <summary>
+    /// Get application configuration flags
+    /// </summary>
+    public async Task<ConfigResponse?> GetConfigAsync()
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<ConfigResponse>("api/config");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to get config");
+            return null;
+        }
+    }
+
     /// <summary>
     /// Get list of available weeks for a given year
     /// </summary>
@@ -204,6 +222,11 @@ public class ApiService
     {
         public int Year { get; set; }
         public List<int> Weeks { get; set; } = new();
+    }
+
+    public class ConfigResponse
+    {
+        public bool GameLockingDisabled { get; set; }
     }
 
     private class BowlLinesExistsResponse
