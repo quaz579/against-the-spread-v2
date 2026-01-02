@@ -12,6 +12,8 @@
     font-size: 0.95rem;
     width: 100%;
     z-index: 1000;
+    position: sticky;
+    top: 0;
 }
 
 .testing-mode-banner strong {
