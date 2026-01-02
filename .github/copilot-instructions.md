@@ -140,7 +140,15 @@ cd tests && npm test
 1. ✅ Code compiles without errors (`dotnet build`)
 2. ✅ All unit tests pass (`dotnet test`)
 3. ✅ All E2E tests pass (`cd tests && npm test`)
-4. ✅ Documentation is updated if needed
+4. ✅ **Manual validation in browser** - Run the app locally and verify UI changes work as expected
+5. ✅ Documentation is updated if needed
+
+**Manual Validation Requirements:**
+- ALWAYS run `./start-e2e.sh` and open http://localhost:4280 in a browser
+- For UI changes: Verify the feature works visually, not just that tests pass
+- For API changes: Test the endpoint through the UI or use browser dev tools
+- For error handling: Trigger the error condition and verify the message displays correctly
+- Do NOT assume changes work just because tests pass - tests may not cover all scenarios
 
 **Do NOT commit code that:**
 - Doesn't compile

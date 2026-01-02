@@ -267,7 +267,7 @@ public class SportsDataSyncFunction
     private async Task<HttpResponseData> CreateErrorResponse(HttpRequestData req, HttpStatusCode statusCode, string message)
     {
         var response = req.CreateResponse(statusCode);
-        await response.WriteAsJsonAsync(new { error = message });
+        await response.WriteAsJsonAsync(new { success = false, message = message });
         return response;
     }
 

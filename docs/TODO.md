@@ -6,7 +6,8 @@
 
 ## UI/UX Improvements
 
-- [ ] Make Admin Upload page more mobile friendly / friendly to narrow viewports
+- [x] Make Admin Upload page more mobile friendly / friendly to narrow viewports
+  - **RESOLVED:** Added `g-3` gutter spacing and `h-100` equal height to sync cards
 
 ---
 
@@ -36,15 +37,14 @@
 
 ## Bugs Found
 
-- [ ] Sync errors not visible on screen - failed network request shows no error message to user
-  - Payload returned: `{"error": "Failed to sync games from external API"}`
-  - Need to display error message in UI when sync fails
-- [ ] Sync API returns generic error messages - need more detailed error info for debugging
-  - `SportsDataSyncFunction.cs:118-123` catches all exceptions and returns generic message
-  - Should return actual error message (at least in dev) for debugging
-- [ ] Sync API returns HTTP 200 for errors - should return proper 4xx/5xx status codes
-  - Got 200 with `{"error": "Failed to sync games from external API"}` in body
-  - Makes it hard for UI to detect and display errors properly
+- [x] Sync errors not visible on screen - failed network request shows no error message to user
+  - **RESOLVED:** Added `ExtractErrorMessage` helper to parse error responses and display actual messages
+  - Backend now returns `{"success": false, "message": "..."}` format
+- [x] Sync API returns generic error messages - need more detailed error info for debugging
+  - **RESOLVED:** Changed `CreateErrorResponse` to include actual error message in response body
+- [x] Sync API returns HTTP 200 for errors - should return proper 4xx/5xx status codes
+  - **ALREADY FIXED:** Backend was already returning proper status codes (BadGateway, InternalServerError)
+  - Issue was frontend not parsing error response body - now fixed
 
 ## Critical Issues
 

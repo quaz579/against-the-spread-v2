@@ -1,6 +1,7 @@
 using AgainstTheSpread.Core.Models;
 using Microsoft.Extensions.Logging;
 using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace AgainstTheSpread.Web.Services;
 
@@ -409,7 +410,8 @@ public class ApiService
 
             if (response.IsSuccessStatusCode)
             {
-                return await response.Content.ReadFromJsonAsync<SubmitResultsResponse>();
+                var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                return await response.Content.ReadFromJsonAsync<SubmitResultsResponse>(jsonOptions);
             }
 
             var errorContent = await response.Content.ReadAsStringAsync();
@@ -501,6 +503,13 @@ public class ApiService
         public int ResultsEntered { get; set; }
         public int ResultsFailed { get; set; }
         public string Message { get; set; } = string.Empty;
+        public List<FailedResultEntry>? FailedResults { get; set; }
+    }
+
+    public class FailedResultEntry
+    {
+        public int GameId { get; set; }
+        public string Reason { get; set; } = string.Empty;
     }
 
     public class SingleResultResponse
@@ -673,22 +682,27 @@ public class ApiService
         try
         {
             var response = await _httpClient.PostAsync($"api/sync/games/{week}?year={year}", null);
+            var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
             if (response.IsSuccessStatusCode)
             {
-                return await response.Content.ReadFromJsonAsync<SyncResponse>();
+                return await response.Content.ReadFromJsonAsync<SyncResponse>(jsonOptions);
             }
 
+            // Try to parse error response to get actual message
             var errorContent = await response.Content.ReadAsStringAsync();
             _logger.LogWarning("Failed to sync weekly games: {StatusCode} - {Content}",
                 response.StatusCode, errorContent);
 
+            var errorMessage = ExtractErrorMessage(errorContent)
+                ?? (response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable
+                    ? "Sports data provider not configured. Please set CFBD_API_KEY."
+                    : $"Server error: {response.StatusCode}");
+
             return new SyncResponse
             {
                 Success = false,
-                Message = response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable
-                    ? "Sports data provider not configured. Please set CFBD_API_KEY."
-                    : $"Server error: {response.StatusCode}"
+                Message = errorMessage
             };
         }
         catch (Exception ex)
@@ -710,22 +724,27 @@ public class ApiService
         try
         {
             var response = await _httpClient.PostAsync($"api/sync/bowl-games?year={year}", null);
+            var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
             if (response.IsSuccessStatusCode)
             {
-                return await response.Content.ReadFromJsonAsync<SyncResponse>();
+                return await response.Content.ReadFromJsonAsync<SyncResponse>(jsonOptions);
             }
 
+            // Try to parse error response to get actual message
             var errorContent = await response.Content.ReadAsStringAsync();
             _logger.LogWarning("Failed to sync bowl games: {StatusCode} - {Content}",
                 response.StatusCode, errorContent);
 
+            var errorMessage = ExtractErrorMessage(errorContent)
+                ?? (response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable
+                    ? "Sports data provider not configured. Please set CFBD_API_KEY."
+                    : $"Server error: {response.StatusCode}");
+
             return new SyncResponse
             {
                 Success = false,
-                Message = response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable
-                    ? "Sports data provider not configured. Please set CFBD_API_KEY."
-                    : $"Server error: {response.StatusCode}"
+                Message = errorMessage
             };
         }
         catch (Exception ex)
@@ -737,6 +756,39 @@ public class ApiService
                 Message = $"Error: {ex.Message}"
             };
         }
+    }
+
+    /// <summary>
+    /// Extract error message from JSON response body
+    /// </summary>
+    private static string? ExtractErrorMessage(string responseContent)
+    {
+        if (string.IsNullOrWhiteSpace(responseContent))
+            return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(responseContent);
+            var root = doc.RootElement;
+
+            // Try "message" property first (new format)
+            if (root.TryGetProperty("message", out var messageElement))
+            {
+                return messageElement.GetString();
+            }
+
+            // Fall back to "error" property (legacy format)
+            if (root.TryGetProperty("error", out var errorElement))
+            {
+                return errorElement.GetString();
+            }
+        }
+        catch (JsonException)
+        {
+            // Not valid JSON, return null
+        }
+
+        return null;
     }
 
     // DTOs for sync
