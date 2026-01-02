@@ -12,16 +12,22 @@ public class GameService : IGameService
 {
     private readonly AtsDbContext _context;
     private readonly ILogger<GameService> _logger;
+    private readonly ITeamNameNormalizer? _teamNameNormalizer;
 
     /// <summary>
     /// Initializes a new instance of GameService.
     /// </summary>
     /// <param name="context">The database context.</param>
     /// <param name="logger">Logger for diagnostic information.</param>
-    public GameService(AtsDbContext context, ILogger<GameService> logger)
+    /// <param name="teamNameNormalizer">Optional team name normalizer for consistent naming.</param>
+    public GameService(
+        AtsDbContext context,
+        ILogger<GameService> logger,
+        ITeamNameNormalizer? teamNameNormalizer = null)
     {
         _context = context;
         _logger = logger;
+        _teamNameNormalizer = teamNameNormalizer;
     }
 
     /// <inheritdoc/>
@@ -44,20 +50,48 @@ public class GameService : IGameService
             .ToListAsync(cancellationToken);
 
         var syncedCount = 0;
+        var processedMatchups = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var gameInput in gamesList)
         {
-            // Try to find existing game by unique combination
+            // Normalize team names if normalizer is available
+            var favorite = gameInput.Favorite;
+            var underdog = gameInput.Underdog;
+
+            if (_teamNameNormalizer != null)
+            {
+                favorite = await _teamNameNormalizer.NormalizeAsync(favorite, cancellationToken);
+                underdog = await _teamNameNormalizer.NormalizeAsync(underdog, cancellationToken);
+            }
+
+            // Create a matchup key to detect duplicates (order-independent)
+            var matchupKey = string.Compare(favorite, underdog, StringComparison.OrdinalIgnoreCase) < 0
+                ? $"{favorite}|{underdog}"
+                : $"{underdog}|{favorite}";
+
+            if (processedMatchups.Contains(matchupKey))
+            {
+                _logger.LogWarning(
+                    "Duplicate game detected in sync batch: {Favorite} vs {Underdog} (original: {OrigFav} vs {OrigUnd}). Skipping.",
+                    favorite, underdog, gameInput.Favorite, gameInput.Underdog);
+                continue;
+            }
+            processedMatchups.Add(matchupKey);
+
+            // Try to find existing game by unique combination (check both team orderings)
             var existingGame = existingGames.FirstOrDefault(g =>
-                g.Favorite == gameInput.Favorite && g.Underdog == gameInput.Underdog);
+                (g.Favorite == favorite && g.Underdog == underdog) ||
+                (g.Favorite == underdog && g.Underdog == favorite));
 
             if (existingGame != null)
             {
                 // Update existing game
+                existingGame.Favorite = favorite;
+                existingGame.Underdog = underdog;
                 existingGame.Line = gameInput.Line;
                 existingGame.GameDate = gameInput.GameDate;
                 _logger.LogDebug("Updated game {Favorite} vs {Underdog} for week {Week}",
-                    gameInput.Favorite, gameInput.Underdog, week);
+                    favorite, underdog, week);
             }
             else
             {
@@ -66,14 +100,14 @@ public class GameService : IGameService
                 {
                     Year = year,
                     Week = week,
-                    Favorite = gameInput.Favorite,
-                    Underdog = gameInput.Underdog,
+                    Favorite = favorite,
+                    Underdog = underdog,
                     Line = gameInput.Line,
                     GameDate = gameInput.GameDate
                 };
                 _context.Games.Add(newGame);
                 _logger.LogDebug("Created game {Favorite} vs {Underdog} for week {Week}",
-                    gameInput.Favorite, gameInput.Underdog, week);
+                    favorite, underdog, week);
             }
 
             syncedCount++;
@@ -112,5 +146,16 @@ public class GameService : IGameService
     public async Task<GameEntity?> GetByIdAsync(int gameId, CancellationToken cancellationToken = default)
     {
         return await _context.Games.FindAsync(new object[] { gameId }, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<List<int>> GetAvailableWeeksAsync(int year, CancellationToken cancellationToken = default)
+    {
+        return await _context.Games
+            .Where(g => g.Year == year)
+            .Select(g => g.Week)
+            .Distinct()
+            .OrderBy(w => w)
+            .ToListAsync(cancellationToken);
     }
 }

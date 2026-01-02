@@ -22,6 +22,9 @@ var host = new HostBuilder()
             services.AddDbContext<AtsDbContext>(options =>
                 options.UseSqlServer(sqlConnectionString));
 
+            // Register team name normalizer (for consistent team naming across sources)
+            services.AddScoped<ITeamNameNormalizer, TeamNameNormalizer>();
+
             // Register data services (only when database is configured)
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IGameService, GameService>();
@@ -33,19 +36,19 @@ var host = new HostBuilder()
             services.AddScoped<IBowlLeaderboardService, BowlLeaderboardService>();
         }
 
-        // Register application services
+        // Register Excel parsing services
         services.AddSingleton<IExcelService, ExcelService>();
         services.AddSingleton<IBowlExcelService, BowlExcelService>();
-        services.AddSingleton<IStorageService>(sp =>
+
+        // Register archive service (for storing Excel file backups in blob storage)
+        services.AddSingleton<IArchiveService>(sp =>
         {
             // Use AZURE_STORAGE_CONNECTION_STRING for custom storage, fallback to AzureWebJobsStorage for local dev
             var connectionString = Environment.GetEnvironmentVariable("AZURE_STORAGE_CONNECTION_STRING")
                 ?? Environment.GetEnvironmentVariable("AzureWebJobsStorage")
                 ?? "UseDevelopmentStorage=true";
-            var excelService = sp.GetRequiredService<IExcelService>();
-            var bowlExcelService = sp.GetRequiredService<IBowlExcelService>();
-            var logger = sp.GetRequiredService<ILogger<StorageService>>();
-            return new StorageService(connectionString, excelService, bowlExcelService, logger);
+            var logger = sp.GetRequiredService<ILogger<ArchiveService>>();
+            return new ArchiveService(connectionString, logger);
         });
 
         // Register Sports Data Provider (optional - only if API key is configured)

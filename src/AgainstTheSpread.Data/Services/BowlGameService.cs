@@ -12,16 +12,22 @@ public class BowlGameService : IBowlGameService
 {
     private readonly AtsDbContext _context;
     private readonly ILogger<BowlGameService> _logger;
+    private readonly ITeamNameNormalizer? _teamNameNormalizer;
 
     /// <summary>
     /// Initializes a new instance of BowlGameService.
     /// </summary>
     /// <param name="context">The database context.</param>
     /// <param name="logger">Logger for diagnostic information.</param>
-    public BowlGameService(AtsDbContext context, ILogger<BowlGameService> logger)
+    /// <param name="teamNameNormalizer">Optional team name normalizer for consistent naming.</param>
+    public BowlGameService(
+        AtsDbContext context,
+        ILogger<BowlGameService> logger,
+        ITeamNameNormalizer? teamNameNormalizer = null)
     {
         _context = context;
         _logger = logger;
+        _teamNameNormalizer = teamNameNormalizer;
     }
 
     /// <inheritdoc/>
@@ -38,6 +44,7 @@ public class BowlGameService : IBowlGameService
         }
 
         var syncedCount = 0;
+        var processedMatchups = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         // Get existing games for this year
         var existingGames = await _context.BowlGames
@@ -46,12 +53,36 @@ public class BowlGameService : IBowlGameService
 
         foreach (var input in gamesList)
         {
+            // Normalize team names if normalizer is available
+            var favorite = input.Favorite;
+            var underdog = input.Underdog;
+
+            if (_teamNameNormalizer != null)
+            {
+                favorite = await _teamNameNormalizer.NormalizeAsync(favorite, cancellationToken);
+                underdog = await _teamNameNormalizer.NormalizeAsync(underdog, cancellationToken);
+            }
+
+            // Create a matchup key to detect duplicates (order-independent)
+            var matchupKey = string.Compare(favorite, underdog, StringComparison.OrdinalIgnoreCase) < 0
+                ? $"{favorite}|{underdog}"
+                : $"{underdog}|{favorite}";
+
+            if (processedMatchups.Contains(matchupKey))
+            {
+                _logger.LogWarning(
+                    "Duplicate bowl game detected: {Favorite} vs {Underdog} (original: {OrigFav} vs {OrigUnd}). Skipping.",
+                    favorite, underdog, input.Favorite, input.Underdog);
+                continue;
+            }
+            processedMatchups.Add(matchupKey);
+
             if (existingGames.TryGetValue(input.GameNumber, out var existingGame))
             {
                 // Update existing game
                 existingGame.BowlName = input.BowlName;
-                existingGame.Favorite = input.Favorite;
-                existingGame.Underdog = input.Underdog;
+                existingGame.Favorite = favorite;
+                existingGame.Underdog = underdog;
                 existingGame.Line = input.Line;
                 existingGame.GameDate = input.GameDate;
                 _logger.LogDebug("Updated bowl game {GameNumber} for year {Year}", input.GameNumber, year);
@@ -64,8 +95,8 @@ public class BowlGameService : IBowlGameService
                     Year = year,
                     GameNumber = input.GameNumber,
                     BowlName = input.BowlName,
-                    Favorite = input.Favorite,
-                    Underdog = input.Underdog,
+                    Favorite = favorite,
+                    Underdog = underdog,
                     Line = input.Line,
                     GameDate = input.GameDate
                 };
@@ -120,6 +151,12 @@ public class BowlGameService : IBowlGameService
     {
         return await _context.BowlGames
             .CountAsync(g => g.Year == year, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> BowlGamesExistAsync(int year, CancellationToken cancellationToken = default)
+    {
+        return await _context.BowlGames.AnyAsync(g => g.Year == year, cancellationToken);
     }
 
     /// <inheritdoc/>

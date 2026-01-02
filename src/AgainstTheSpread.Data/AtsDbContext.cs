@@ -42,6 +42,11 @@ public class AtsDbContext : DbContext
     public DbSet<BowlPickEntity> BowlPicks => Set<BowlPickEntity>();
 
     /// <summary>
+    /// Gets or sets the TeamAliases DbSet for team name normalization.
+    /// </summary>
+    public DbSet<TeamAliasEntity> TeamAliases => Set<TeamAliasEntity>();
+
+    /// <summary>
     /// Configures the model using entity configurations from this assembly.
     /// </summary>
     /// <param name="modelBuilder">The model builder.</param>
