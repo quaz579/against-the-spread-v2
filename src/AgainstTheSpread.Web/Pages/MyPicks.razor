@@ -48,36 +48,57 @@
         </div>
 
         <!-- Season Summary -->
-        <div class="row mb-4">
-            <div class="col-md-3">
-                <div class="card text-bg-success">
-                    <div class="card-body text-center">
-                        <h3 class="card-title mb-0">@myHistory.TotalWins</h3>
-                        <p class="card-text mb-0">Wins</p>
+        <div class="row mb-4 g-3">
+            <div class="col-6 col-lg-3">
+                <div class="card stats-card stats-card-wins h-100">
+                    <div class="card-body text-center py-4">
+                        <div class="stats-icon mb-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+                            </svg>
+                        </div>
+                        <h2 class="card-title display-4 fw-bold mb-1">@myHistory.TotalWins</h2>
+                        <p class="card-text text-uppercase letter-spacing mb-0">Wins</p>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card text-bg-danger">
-                    <div class="card-body text-center">
-                        <h3 class="card-title mb-0">@myHistory.TotalLosses</h3>
-                        <p class="card-text mb-0">Losses</p>
+            <div class="col-6 col-lg-3">
+                <div class="card stats-card stats-card-losses h-100">
+                    <div class="card-body text-center py-4">
+                        <div class="stats-icon mb-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM5.354 4.646a.5.5 0 1 0-.708.708L7.293 8l-2.647 2.646a.5.5 0 0 0 .708.708L8 8.707l2.646 2.647a.5.5 0 0 0 .708-.708L8.707 8l2.647-2.646a.5.5 0 0 0-.708-.708L8 7.293 5.354 4.646z"/>
+                            </svg>
+                        </div>
+                        <h2 class="card-title display-4 fw-bold mb-1">@myHistory.TotalLosses</h2>
+                        <p class="card-text text-uppercase letter-spacing mb-0">Losses</p>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card text-bg-secondary">
-                    <div class="card-body text-center">
-                        <h3 class="card-title mb-0">@myHistory.TotalPushes</h3>
-                        <p class="card-text mb-0">Pushes</p>
+            <div class="col-6 col-lg-3">
+                <div class="card stats-card stats-card-pushes h-100">
+                    <div class="card-body text-center py-4">
+                        <div class="stats-icon mb-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                <path d="M4 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 4 8z"/>
+                            </svg>
+                        </div>
+                        <h2 class="card-title display-4 fw-bold mb-1">@myHistory.TotalPushes</h2>
+                        <p class="card-text text-uppercase letter-spacing mb-0">Pushes</p>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card text-bg-primary">
-                    <div class="card-body text-center">
-                        <h3 class="card-title mb-0">@myHistory.WinPercentage%</h3>
-                        <p class="card-text mb-0">Win Rate</p>
+            <div class="col-6 col-lg-3">
+                <div class="card stats-card stats-card-winrate h-100">
+                    <div class="card-body text-center py-4">
+                        <div class="stats-icon mb-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M2.5.5A.5.5 0 0 1 3 0h10a.5.5 0 0 1 .5.5c0 .538-.012 1.05-.034 1.536a3 3 0 1 1-1.133 5.89c-.79 1.865-1.878 2.777-2.833 3.011v2.173l1.425.356c.194.048.377.135.537.255L13.3 15.1a.5.5 0 0 1-.3.9H3a.5.5 0 0 1-.3-.9l1.838-1.379c.16-.12.343-.207.537-.255L6.5 13.11v-2.173c-.955-.234-2.043-1.146-2.833-3.012a3 3 0 1 1-1.132-5.89A33.076 33.076 0 0 1 2.5.5zm.099 2.54a2 2 0 0 0 .72 3.935c-.333-1.05-.588-2.346-.72-3.935zm10.083 3.935a2 2 0 0 0 .72-3.935c-.133 1.59-.388 2.885-.72 3.935z"/>
+                            </svg>
+                        </div>
+                        <h2 class="card-title display-4 fw-bold mb-1">@myHistory.WinPercentage%</h2>
+                        <p class="card-text text-uppercase letter-spacing mb-0">Win Rate</p>
                     </div>
                 </div>
             </div>

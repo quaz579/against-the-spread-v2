@@ -1,6 +1,7 @@
 @page "/leaderboard"
 @using AgainstTheSpread.Web.Services
 @inject ApiService ApiService
+@inject IAuthStateService AuthState
 
 <PageTitle>Leaderboard - Against The Spread</PageTitle>
 
@@ -76,19 +77,19 @@
                         }
                         @foreach (var entry in seasonLeaderboard.Entries)
                         {
-                            <tr class="@(seasonRank <= 3 ? "table-warning" : "")">
+                            <tr class="@GetSeasonRowClass(seasonRank, entry.UserId)">
                                 <td>
                                     @if (seasonRank == 1)
                                     {
-                                        <span class="badge bg-warning text-dark">1st</span>
+                                        <span class="badge badge-gold">1st</span>
                                     }
                                     else if (seasonRank == 2)
                                     {
-                                        <span class="badge bg-secondary">2nd</span>
+                                        <span class="badge badge-silver">2nd</span>
                                     }
                                     else if (seasonRank == 3)
                                     {
-                                        <span class="badge bg-danger">3rd</span>
+                                        <span class="badge badge-bronze">3rd</span>
                                     }
                                     else
                                     {
@@ -98,6 +99,10 @@
                                 <td>
                                     <a href="/leaderboard/user/@entry.UserId?year=@selectedYear" class="text-decoration-none">
                                         @entry.DisplayName
+                                        @if (IsCurrentUser(entry.UserId))
+                                        {
+                                            <span class="badge bg-primary ms-2">You</span>
+                                        }
                                     </a>
                                 </td>
                                 <td class="text-center text-success fw-bold">@entry.TotalWins</td>
@@ -151,19 +156,19 @@
                         }
                         @foreach (var entry in weeklyLeaderboard.Entries)
                         {
-                            <tr class="@(weekRank <= 3 ? "table-warning" : "") @(entry.Wins >= 6 && entry.Losses == 0 ? "table-success" : "")">
+                            <tr class="@GetWeeklyRowClass(weekRank, entry.UserId, entry.Wins >= 6 && entry.Losses == 0)">
                                 <td>
                                     @if (weekRank == 1)
                                     {
-                                        <span class="badge bg-warning text-dark">1st</span>
+                                        <span class="badge badge-gold">1st</span>
                                     }
                                     else if (weekRank == 2)
                                     {
-                                        <span class="badge bg-secondary">2nd</span>
+                                        <span class="badge badge-silver">2nd</span>
                                     }
                                     else if (weekRank == 3)
                                     {
-                                        <span class="badge bg-danger">3rd</span>
+                                        <span class="badge badge-bronze">3rd</span>
                                     }
                                     else
                                     {
@@ -173,6 +178,10 @@
                                 <td>
                                     <a href="/leaderboard/user/@entry.UserId?year=@selectedYear" class="text-decoration-none">
                                         @entry.DisplayName
+                                        @if (IsCurrentUser(entry.UserId))
+                                        {
+                                            <span class="badge bg-primary ms-2">You</span>
+                                        }
                                         @if (entry.Wins >= 6 && entry.Losses == 0)
                                         {
                                             <span class="badge bg-success ms-2">PERFECT</span>
@@ -207,6 +216,7 @@
     private List<int> availableWeeks = new();
     private bool isLoading = true;
     private string? errorMessage;
+    private string? currentUserId;
 
     private ApiService.SeasonLeaderboardResponse? seasonLeaderboard;
     private ApiService.WeeklyLeaderboardResponse? weeklyLeaderboard;
@@ -217,7 +227,39 @@
         var currentYear = DateTime.Now.Year;
         availableYears = Enumerable.Range(currentYear - 2, 3).Reverse().ToList();
 
+        // Get current user ID for highlighting
+        await AuthState.InitializeAsync();
+        currentUserId = AuthState.UserId;
+
         await LoadData();
+    }
+
+    private bool IsCurrentUser(Guid userId)
+    {
+        return !string.IsNullOrEmpty(currentUserId) &&
+               string.Equals(currentUserId, userId.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string GetSeasonRowClass(int rank, Guid userId)
+    {
+        var classes = new List<string>();
+        if (IsCurrentUser(userId))
+            classes.Add("table-current-user");
+        else if (rank <= 3)
+            classes.Add("table-warning");
+        return string.Join(" ", classes);
+    }
+
+    private string GetWeeklyRowClass(int rank, Guid userId, bool isPerfect)
+    {
+        var classes = new List<string>();
+        if (IsCurrentUser(userId))
+            classes.Add("table-current-user");
+        else if (isPerfect)
+            classes.Add("table-success");
+        else if (rank <= 3)
+            classes.Add("table-warning");
+        return string.Join(" ", classes);
     }
 
     private async Task LoadData()
