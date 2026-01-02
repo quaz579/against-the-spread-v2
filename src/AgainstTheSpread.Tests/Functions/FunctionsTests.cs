@@ -59,7 +59,24 @@ public class FunctionsTests
         function.Should().NotBeNull();
     }
 
+    [Fact]
+    public async Task GetConfigFunction_CanBeConstructed()
+    {
+        // Arrange
+        var mockLogger = new Mock<ILogger<GetConfigFunction>>();
+
+        // Act
+        var function = new GetConfigFunction(mockLogger.Object);
+
+        // Assert
+        function.Should().NotBeNull();
+    }
+
     // Note: Full integration tests for HTTP endpoints will be added in Phase 8
     // These would require mocking HttpRequestData and FunctionContext which is complex
     // For now, we verify the functions are constructed and services are injected correctly
+
+    // Note: The DISABLE_GAME_LOCKING behavior is tested via E2E tests since the environment
+    // variable is cached in a static readonly field at assembly load time, making it
+    // difficult to test both enabled/disabled states in the same test run.
 }

@@ -73,6 +73,13 @@ variable "enable_test_auth" {
   default     = false
 }
 
+# Game Locking Configuration (for testing with historical data)
+variable "disable_game_locking" {
+  description = "Disable game locking to allow picks on past games (for testing only)"
+  type        = bool
+  default     = false
+}
+
 # CFBD API Key (College Football Data)
 variable "cfbd_api_key" {
   description = "API key for College Football Data API (optional - sync features disabled if not set)"

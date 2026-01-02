@@ -9,6 +9,13 @@ namespace AgainstTheSpread.Data.Entities;
 public class GameEntity
 {
     /// <summary>
+    /// Cached value of DISABLE_GAME_LOCKING environment variable.
+    /// Loaded once at startup for performance.
+    /// </summary>
+    private static readonly bool _gameLockingDisabled =
+        Environment.GetEnvironmentVariable("DISABLE_GAME_LOCKING") == "true";
+
+    /// <summary>
     /// Primary key identifier for the game.
     /// </summary>
     public int Id { get; set; }
@@ -89,10 +96,11 @@ public class GameEntity
 
     /// <summary>
     /// Indicates whether the game is locked for picks (kickoff time has passed).
+    /// Can be disabled via DISABLE_GAME_LOCKING environment variable for testing.
     /// This property is not stored in the database.
     /// </summary>
     [NotMapped]
-    public bool IsLocked => DateTime.UtcNow >= GameDate;
+    public bool IsLocked => !_gameLockingDisabled && DateTime.UtcNow >= GameDate;
 
     /// <summary>
     /// Indicates whether the game has a result entered.

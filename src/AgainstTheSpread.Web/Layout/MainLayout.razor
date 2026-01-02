@@ -1,5 +1,15 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@inject AgainstTheSpread.Web.Services.ApiService ApiService
+
 <div class="page">
+    @if (_gameLockingDisabled)
+    {
+        <div class="testing-mode-banner">
+            <strong>TESTING MODE:</strong> Game locking is disabled.
+            Picks can be made on past games.
+            <em>Remember to disable this before the real season!</em>
+        </div>
+    }
     <div class="sidebar">
         <NavMenu />
     </div>
@@ -10,3 +20,12 @@
         </article>
     </main>
 </div>
+
+@code {
+    private bool _gameLockingDisabled;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _gameLockingDisabled = await ApiService.IsGameLockingDisabledAsync();
+    }
+}

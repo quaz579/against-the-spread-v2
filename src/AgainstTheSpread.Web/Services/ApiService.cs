@@ -19,6 +19,25 @@ public class ApiService
         _logger = logger;
     }
 
+    // ============ Configuration Methods ============
+
+    /// <summary>
+    /// Check if game locking is disabled (for testing with historical data)
+    /// </summary>
+    public async Task<bool> IsGameLockingDisabledAsync()
+    {
+        try
+        {
+            var config = await _httpClient.GetFromJsonAsync<ConfigResponse>("api/config");
+            return config?.GameLockingDisabled ?? false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to get config");
+            return false;
+        }
+    }
+
     /// <summary>
     /// Get list of available weeks for a given year
     /// </summary>
@@ -204,6 +223,11 @@ public class ApiService
     {
         public int Year { get; set; }
         public List<int> Weeks { get; set; } = new();
+    }
+
+    private class ConfigResponse
+    {
+        public bool GameLockingDisabled { get; set; }
     }
 
     private class BowlLinesExistsResponse
