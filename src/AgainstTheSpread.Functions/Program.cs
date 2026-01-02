@@ -34,6 +34,7 @@ var host = new HostBuilder()
             services.AddScoped<IBowlGameService, BowlGameService>();
             services.AddScoped<IBowlPickService, BowlPickService>();
             services.AddScoped<IBowlLeaderboardService, BowlLeaderboardService>();
+            services.AddScoped<IGameResultMatcher, GameResultMatcher>();
         }
 
         // Register Excel parsing services

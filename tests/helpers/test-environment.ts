@@ -44,108 +44,62 @@ export class TestEnvironment {
 
   /**
    * Authenticate using the appropriate method for the environment.
-   * - Cloud: Uses test auth bypass with X-Test-User-Email header
-   * - Local: Uses SWA CLI mock auth form
+   * - Uses test auth bypass with X-Test-User-Email header (requires ENABLE_TEST_AUTH=true in Functions)
+   * - This works for both local and cloud environments
    */
   async authenticate(adminPage: any, email?: string): Promise<void> {
     const authEmail = email || this.adminEmail;
-
-    if (this.isCloudEnvironment) {
-      console.log(`Cloud auth: Setting up test auth bypass for ${authEmail}`);
-      await adminPage.loginWithTestAuth(authEmail);
-    } else {
-      console.log(`Local auth: Using mock auth for ${authEmail}`);
-      await adminPage.loginWithMockAuth(authEmail);
-    }
+    // Always use test auth bypass - it works for both local and cloud when ENABLE_TEST_AUTH=true
+    console.log(`Setting up test auth bypass for ${authEmail}`);
+    await adminPage.loginWithTestAuth(authEmail);
   }
 
   /**
    * Authenticate via sign-in button on any page (for non-admin auth flows).
-   * - Cloud: Sets up test auth bypass header routing and mocks /.auth/me
-   * - Local: Clicks sign-in and goes through mock auth form
+   * Uses test auth bypass with X-Test-User-Email header (requires ENABLE_TEST_AUTH=true in Functions)
    * @param page - Playwright page object
    * @param email - Email to authenticate as (defaults to adminEmail)
-   * @param returnUrl - Expected return URL pattern after auth (defaults to current page)
+   * @param returnUrl - Expected return URL pattern after auth (ignored, kept for compatibility)
    */
   async authenticateViaSignIn(page: Page, email?: string, returnUrl?: string): Promise<void> {
     const authEmail = email || this.adminEmail;
+    console.log(`Setting up test auth bypass for ${authEmail}`);
 
-    if (this.isCloudEnvironment) {
-      console.log(`Cloud auth: Setting up test auth bypass for ${authEmail}`);
-
-      // Mock /.auth/me to make frontend think user is logged in
-      await page.route('**/.auth/me', async route => {
-        const mockAuthResponse = {
-          clientPrincipal: {
-            identityProvider: 'google',
-            userId: `test-${authEmail.replace(/[^a-zA-Z0-9]/g, '')}`,
-            userDetails: authEmail,
-            userRoles: ['authenticated', 'anonymous'],
-            claims: [
-              { typ: 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress', val: authEmail },
-              { typ: 'email', val: authEmail },
-              { typ: 'name', val: authEmail.split('@')[0] }
-            ]
-          }
-        };
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(mockAuthResponse)
-        });
+    // Mock /.auth/me to make frontend think user is logged in
+    await page.route('**/.auth/me', async route => {
+      const mockAuthResponse = {
+        clientPrincipal: {
+          identityProvider: 'google',
+          userId: `test-${authEmail.replace(/[^a-zA-Z0-9]/g, '')}`,
+          userDetails: authEmail,
+          userRoles: ['authenticated', 'anonymous'],
+          claims: [
+            { typ: 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress', val: authEmail },
+            { typ: 'email', val: authEmail },
+            { typ: 'name', val: authEmail.split('@')[0] }
+          ]
+        }
+      };
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mockAuthResponse)
       });
+    });
 
-      // Set up request interception to add test auth header
-      await page.route('**/api/**', async route => {
-        const headers = {
-          ...route.request().headers(),
-          'X-Test-User-Email': authEmail
-        };
-        await route.continue({ headers });
-      });
-      // Reload to apply mocked auth
-      await page.reload();
-      await page.waitForLoadState('networkidle');
-      console.log('Test auth bypass configured');
-    } else {
-      console.log(`Local auth: Using mock auth for ${authEmail}`);
-      // Click sign in button
-      const signInButton = page.getByRole('button', { name: /Sign in with Google/i });
-      const isSignInVisible = await signInButton.isVisible().catch(() => false);
+    // Set up request interception to add test auth header
+    await page.route('**/api/**', async route => {
+      const headers = {
+        ...route.request().headers(),
+        'X-Test-User-Email': authEmail
+      };
+      await route.continue({ headers });
+    });
 
-      if (!isSignInVisible) {
-        console.log('Sign in button not visible - may already be authenticated');
-        return;
-      }
-
-      await signInButton.click();
-      await page.waitForURL('**/.auth/login/google**', { timeout: 10000 });
-
-      // Fill mock auth form
-      const userDetailsInput = page.locator('input[name="userDetails"]');
-      await userDetailsInput.waitFor({ state: 'visible', timeout: 10000 });
-      await userDetailsInput.fill(authEmail);
-
-      // Fill claims with email
-      const claimsInput = page.locator('input[name="claims"]');
-      if (await claimsInput.isVisible()) {
-        const emailClaim = JSON.stringify([{ typ: 'email', val: authEmail }]);
-        await claimsInput.fill(emailClaim);
-        await claimsInput.dispatchEvent('keyup');
-      }
-
-      await userDetailsInput.dispatchEvent('keyup');
-      await page.waitForTimeout(100);
-
-      // Submit mock auth
-      await page.getByRole('button', { name: 'Login' }).click();
-
-      // Wait for redirect back
-      if (returnUrl) {
-        await page.waitForURL(returnUrl, { timeout: 10000 });
-      }
-      await page.waitForLoadState('networkidle');
-    }
+    // Reload to apply mocked auth
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    console.log('Test auth bypass configured');
   }
 
   /**

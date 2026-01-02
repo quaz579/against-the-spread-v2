@@ -401,7 +401,7 @@
                 </div>
 
                 <div class="row g-3">
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <div class="card shadow-sm h-100">
                             <div class="card-body">
                                 <h5 class="card-title">Sync Weekly Games</h5>
@@ -438,7 +438,44 @@
                         </div>
                     </div>
 
-                    <div class="col-md-6">
+                    <div class="col-md-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">Sync Weekly Results</h5>
+                                <p class="text-muted">Pull final scores from completed games.</p>
+
+                                <div class="row mb-3">
+                                    <div class="col-6">
+                                        <label for="syncResultsWeek" class="form-label">Week</label>
+                                        <select class="form-select" id="syncResultsWeek" @bind="syncResultsWeek">
+                                            @for (int i = 1; i <= 17; i++)
+                                            {
+                                                <option value="@i">Week @i</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <label for="syncResultsYear" class="form-label">Year</label>
+                                        <input type="number" class="form-control" id="syncResultsYear" @bind="syncResultsYear" min="2020" max="2030" />
+                                    </div>
+                                </div>
+
+                                <button class="btn btn-info w-100 text-white" @onclick="SyncWeeklyResults" disabled="@isSyncingResults">
+                                    @if (isSyncingResults)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                        <span>Syncing...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>📊 Sync Results</span>
+                                    }
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
                         <div class="card shadow-sm h-100">
                             <div class="card-body">
                                 <h5 class="card-title">Sync Bowl Games</h5>
@@ -514,9 +551,12 @@
     private int syncWeek = 1;
     private int syncYear = DateTime.Now.Year;
     private int syncBowlYear = DateTime.Now.Year;
+    private int syncResultsWeek = 1;
+    private int syncResultsYear = DateTime.Now.Year;
     private bool isCheckingStatus = false;
     private bool isSyncingWeekly = false;
     private bool isSyncingBowl = false;
+    private bool isSyncingResults = false;
     private string? syncErrorMessage;
     private string? syncSuccessMessage;
     private ApiService.SyncStatusResponse? syncStatus;
@@ -940,6 +980,49 @@
         finally
         {
             isSyncingBowl = false;
+        }
+    }
+
+    private async Task SyncWeeklyResults()
+    {
+        isSyncingResults = true;
+        ClearSyncMessages();
+
+        try
+        {
+            var response = await ApiService.SyncWeeklyResultsAsync(syncResultsWeek, syncResultsYear);
+
+            if (response?.Success == true)
+            {
+                var message = $"Synced {response.ResultsSynced} results for Week {syncResultsWeek}, {syncResultsYear}";
+                if (response.GamesSkipped > 0)
+                {
+                    message += $" ({response.GamesSkipped} games already had results)";
+                }
+                if (response.GamesNotFound > 0)
+                {
+                    message += $" ({response.GamesNotFound} games not found in database)";
+                }
+                syncSuccessMessage = message;
+
+                // Reload the games if we're viewing the same week
+                if (syncResultsWeek == resultsWeek && syncResultsYear == resultsYear && gamesForResults != null)
+                {
+                    await LoadGamesForResults();
+                }
+            }
+            else
+            {
+                syncErrorMessage = response?.Message ?? "Failed to sync results. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            syncErrorMessage = $"Error syncing results: {ex.Message}";
+        }
+        finally
+        {
+            isSyncingResults = false;
         }
     }
 

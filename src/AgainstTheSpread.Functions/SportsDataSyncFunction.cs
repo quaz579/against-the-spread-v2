@@ -19,6 +19,8 @@ public class SportsDataSyncFunction
     private readonly IGameService _gameService;
     private readonly IBowlGameService _bowlGameService;
     private readonly IUserService _userService;
+    private readonly IGameResultMatcher _gameResultMatcher;
+    private readonly IResultService _resultService;
     private readonly AuthHelper _authHelper;
 
     public SportsDataSyncFunction(
@@ -26,6 +28,8 @@ public class SportsDataSyncFunction
         IGameService gameService,
         IBowlGameService bowlGameService,
         IUserService userService,
+        IGameResultMatcher gameResultMatcher,
+        IResultService resultService,
         ISportsDataProvider? sportsDataProvider = null)
     {
         _logger = logger;
@@ -33,6 +37,8 @@ public class SportsDataSyncFunction
         _gameService = gameService;
         _bowlGameService = bowlGameService;
         _userService = userService;
+        _gameResultMatcher = gameResultMatcher;
+        _resultService = resultService;
         _authHelper = new AuthHelper(logger);
     }
 
@@ -210,6 +216,108 @@ public class SportsDataSyncFunction
             _logger.LogError(ex, "Error syncing bowl games");
             return await CreateErrorResponse(req, HttpStatusCode.InternalServerError,
                 "Failed to sync bowl games from external API");
+        }
+    }
+
+    /// <summary>
+    /// Sync weekly game results from external API.
+    /// POST /api/sync/results/{week}?year={year}
+    /// Admin only.
+    /// </summary>
+    [Function("SyncWeeklyResults")]
+    public async Task<HttpResponseData> SyncWeeklyResults(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "sync/results/{week:int}")] HttpRequestData req,
+        int week)
+    {
+        _logger.LogInformation("Processing sync weekly results request for week {Week}", week);
+
+        try
+        {
+            // Validate admin access
+            var authResult = await ValidateAdminAccessAsync(req);
+            if (authResult.ErrorResponse != null)
+            {
+                return authResult.ErrorResponse;
+            }
+
+            // Check if provider is configured
+            if (_sportsDataProvider == null)
+            {
+                return await CreateErrorResponse(req, HttpStatusCode.ServiceUnavailable,
+                    "Sports data provider not configured. Please set CFBD_API_KEY environment variable.");
+            }
+
+            // Get year from query string
+            if (!int.TryParse(req.Query["year"], out int year))
+            {
+                year = DateTime.UtcNow.Year;
+            }
+
+            // Fetch results from external API
+            var externalResults = await _sportsDataProvider.GetWeeklyResultsAsync(year, week);
+
+            if (!externalResults.Any())
+            {
+                var emptyResponse = req.CreateResponse(HttpStatusCode.OK);
+                await emptyResponse.WriteAsJsonAsync(new
+                {
+                    success = true,
+                    message = "No completed games found for the specified week",
+                    resultsSynced = 0,
+                    gamesNotFound = 0,
+                    gamesSkipped = 0
+                });
+                return emptyResponse;
+            }
+
+            // Match external results to database games
+            var matchResult = await _gameResultMatcher.MatchResultsToGamesAsync(year, week, externalResults);
+
+            // Get or create admin user
+            var adminUser = await _userService.GetOrCreateUserAsync(
+                authResult.UserInfo!.UserId,
+                authResult.UserInfo.Email,
+                authResult.UserInfo.DisplayName ?? authResult.UserInfo.Email);
+
+            // Enter results for matched games
+            var resultsToEnter = matchResult.Matched.Select(m =>
+                new GameResultInput(m.GameId, m.FavoriteScore, m.UnderdogScore)).ToList();
+
+            var bulkResult = await _resultService.BulkEnterResultsAsync(
+                year, week, resultsToEnter, adminUser.Id);
+
+            // Build response
+            var unmatchedList = matchResult.Unmatched
+                .Select(u => $"{u.HomeTeam} vs {u.AwayTeam}")
+                .ToList();
+
+            var response = req.CreateResponse(HttpStatusCode.OK);
+            await response.WriteAsJsonAsync(new
+            {
+                success = true,
+                message = $"Synced {bulkResult.ResultsEntered} results from {_sportsDataProvider.ProviderName}",
+                provider = _sportsDataProvider.ProviderName,
+                year = year,
+                week = week,
+                resultsSynced = bulkResult.ResultsEntered,
+                gamesNotFound = matchResult.Unmatched.Count,
+                gamesSkipped = matchResult.GamesWithExistingResults,
+                unmatchedGames = unmatchedList.Any() ? unmatchedList : null
+            });
+
+            return response;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "HTTP error syncing results for week {Week}", week);
+            return await CreateErrorResponse(req, HttpStatusCode.BadGateway,
+                $"Error communicating with sports data provider: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error syncing results for week {Week}", week);
+            return await CreateErrorResponse(req, HttpStatusCode.InternalServerError,
+                "Failed to sync results from external API");
         }
     }
 

@@ -759,6 +759,48 @@ public class ApiService
     }
 
     /// <summary>
+    /// Sync weekly game results from CFBD API (admin only)
+    /// </summary>
+    public async Task<SyncResultsResponse?> SyncWeeklyResultsAsync(int week, int year)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsync($"api/sync/results/{week}?year={year}", null);
+            var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadFromJsonAsync<SyncResultsResponse>(jsonOptions);
+            }
+
+            // Try to parse error response to get actual message
+            var errorContent = await response.Content.ReadAsStringAsync();
+            _logger.LogWarning("Failed to sync weekly results: {StatusCode} - {Content}",
+                response.StatusCode, errorContent);
+
+            var errorMessage = ExtractErrorMessage(errorContent)
+                ?? (response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable
+                    ? "Sports data provider not configured. Please set CFBD_API_KEY."
+                    : $"Server error: {response.StatusCode}");
+
+            return new SyncResultsResponse
+            {
+                Success = false,
+                Message = errorMessage
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception syncing weekly results for week {Week}, year {Year}", week, year);
+            return new SyncResultsResponse
+            {
+                Success = false,
+                Message = $"Error: {ex.Message}"
+            };
+        }
+    }
+
+    /// <summary>
     /// Extract error message from JSON response body
     /// </summary>
     private static string? ExtractErrorMessage(string responseContent)
@@ -808,5 +850,18 @@ public class ApiService
         public int? Week { get; set; }
         public int GamesSynced { get; set; }
         public int GamesFound { get; set; }
+    }
+
+    public class SyncResultsResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public string? Provider { get; set; }
+        public int? Year { get; set; }
+        public int? Week { get; set; }
+        public int ResultsSynced { get; set; }
+        public int GamesNotFound { get; set; }
+        public int GamesSkipped { get; set; }
+        public List<string>? UnmatchedGames { get; set; }
     }
 }
