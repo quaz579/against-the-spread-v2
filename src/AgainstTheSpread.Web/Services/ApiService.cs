@@ -22,18 +22,19 @@ public class ApiService
     // ============ Configuration Methods ============
 
     /// <summary>
-    /// Get application configuration flags
+    /// Check if game locking is disabled (for testing with historical data)
     /// </summary>
-    public async Task<ConfigResponse?> GetConfigAsync()
+    public async Task<bool> IsGameLockingDisabledAsync()
     {
         try
         {
-            return await _httpClient.GetFromJsonAsync<ConfigResponse>("api/config");
+            var config = await _httpClient.GetFromJsonAsync<ConfigResponse>("api/config");
+            return config?.GameLockingDisabled ?? false;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to get config");
-            return null;
+            return false;
         }
     }
 
@@ -224,7 +225,7 @@ public class ApiService
         public List<int> Weeks { get; set; } = new();
     }
 
-    public class ConfigResponse
+    private class ConfigResponse
     {
         public bool GameLockingDisabled { get; set; }
     }

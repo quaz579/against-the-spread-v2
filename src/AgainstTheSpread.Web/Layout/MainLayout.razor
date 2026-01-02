@@ -26,7 +26,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var config = await ApiService.GetConfigAsync();
-        _gameLockingDisabled = config?.GameLockingDisabled ?? false;
+        _gameLockingDisabled = await ApiService.IsGameLockingDisabledAsync();
     }
 }
