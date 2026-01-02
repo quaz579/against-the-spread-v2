@@ -27,7 +27,7 @@
             <p class="mt-2">Loading games...</p>
         </div>
     }
-    else if (currentWeekLines == null && gamesFromDb == null)
+    else if (gamesFromDb == null)
     {
         <!-- Error Message (if any) -->
         @if (errorMessage != null)
@@ -248,7 +248,6 @@
     private int selectedYear = DateTime.Now.Year;
     private int selectedWeek = 0;
     private List<int> availableWeeks = new();
-    private WeeklyLines? currentWeekLines = null;
     private ApiService.GamesResponse? gamesFromDb = null;
     private List<string> selectedPicks = new();
     private Dictionary<string, int> teamToGameId = new(); // Maps team name to GameId for database submission
@@ -315,21 +314,22 @@
 
         try
         {
-            // For authenticated users, try to load from database first (includes IDs and lock status)
-            if (AuthStateService.IsAuthenticated)
-            {
-                gamesFromDb = await ApiService.GetGamesAsync(selectedWeek, selectedYear);
-                if (gamesFromDb != null && gamesFromDb.Games.Any())
-                {
-                    // Build mapping of team names to game IDs
-                    teamToGameId.Clear();
-                    foreach (var game in gamesFromDb.Games)
-                    {
-                        teamToGameId[game.Favorite] = game.Id;
-                        teamToGameId[game.Underdog] = game.Id;
-                    }
+            // Load games from database (used for all users)
+            gamesFromDb = await ApiService.GetGamesAsync(selectedWeek, selectedYear);
 
-                    // Load existing picks for this week
+            if (gamesFromDb != null && gamesFromDb.Games.Any())
+            {
+                // Build mapping of team names to game IDs
+                teamToGameId.Clear();
+                foreach (var game in gamesFromDb.Games)
+                {
+                    teamToGameId[game.Favorite] = game.Id;
+                    teamToGameId[game.Underdog] = game.Id;
+                }
+
+                // For authenticated users, load existing picks
+                if (AuthStateService.IsAuthenticated)
+                {
                     await LoadExistingPicks();
                     selectedPicks.Clear();
                     foreach (var pick in existingPicks)
@@ -339,15 +339,12 @@
                 }
                 else
                 {
-                    // Fall back to blob storage data if no database records
-                    Logger.LogWarning("No games in database for week {Week}, year {Year}. Falling back to blob storage.", selectedWeek, selectedYear);
-                    await LoadFromBlobStorage();
+                    selectedPicks.Clear();
                 }
             }
             else
             {
-                // For unauthenticated users, use blob storage (original flow)
-                await LoadFromBlobStorage();
+                errorMessage = $"No games available for Week {selectedWeek} of {selectedYear}. Please check back later or contact your administrator.";
             }
         }
         catch (Exception ex)
@@ -358,20 +355,6 @@
         finally
         {
             isLoading = false;
-        }
-    }
-
-    private async Task LoadFromBlobStorage()
-    {
-        currentWeekLines = await ApiService.GetLinesAsync(selectedWeek, selectedYear);
-
-        if (currentWeekLines == null)
-        {
-            errorMessage = $"Could not load games for Week {selectedWeek}. Please try again.";
-        }
-        else
-        {
-            selectedPicks.Clear();
         }
     }
 
@@ -393,7 +376,6 @@
 
     private void GoBack()
     {
-        currentWeekLines = null;
         gamesFromDb = null;
         selectedPicks.Clear();
         teamToGameId.Clear();
@@ -442,21 +424,8 @@
                 Underdog = g.Underdog,
                 Line = g.Line,
                 GameDate = g.GameDate,
-                VsAt = "vs", // Default for database games
+                VsAt = "vs",
                 IsLocked = g.IsLocked
-            }).ToList();
-        }
-        else if (currentWeekLines != null)
-        {
-            return currentWeekLines.Games.Select(g => new GameDisplayModel
-            {
-                Id = 0, // No ID from blob storage
-                Favorite = g.Favorite,
-                Underdog = g.Underdog,
-                Line = g.Line,
-                GameDate = g.GameDate,
-                VsAt = g.VsAt,
-                IsLocked = DateTime.UtcNow >= g.GameDate
             }).ToList();
         }
 
@@ -517,7 +486,7 @@
 
     private async Task GeneratePicks()
     {
-        if (selectedPicks.Count != 6 || currentWeekLines == null)
+        if (selectedPicks.Count != 6 || gamesFromDb == null)
             return;
 
         isDownloading = true;
@@ -643,7 +612,7 @@
 
     private async Task PrintPicksSheet()
     {
-        if (selectedPicks.Count != 6 || currentWeekLines == null || isPrinting)
+        if (selectedPicks.Count != 6 || gamesFromDb == null || isPrinting)
             return;
 
         isPrinting = true;
@@ -669,13 +638,15 @@
         foreach (var teamName in selectedPicks)
         {
             // Find the game where this team is either favorite or underdog
-            var game = currentWeekLines!.Games.FirstOrDefault(g =>
+            var game = gamesFromDb!.Games.FirstOrDefault(g =>
                 g.Favorite.Equals(teamName, StringComparison.OrdinalIgnoreCase) ||
                 g.Underdog.Equals(teamName, StringComparison.OrdinalIgnoreCase));
 
             if (game != null)
             {
-                var spreadDisplay = SpreadFormatter.FormatSpreadForTeam(game, teamName);
+                // Format spread: favorite gets negative line, underdog gets positive
+                var isFavorite = game.Favorite.Equals(teamName, StringComparison.OrdinalIgnoreCase);
+                var spreadDisplay = isFavorite ? game.Line.ToString("0.#") : $"+{(-game.Line):0.#}";
                 picksLines.Add($"{spreadDisplay} {teamName}");
             }
             else
@@ -688,7 +659,7 @@
     }
 
     /// <summary>
-    /// Display model for games that works with both blob storage and database sources.
+    /// Display model for games loaded from the database.
     /// </summary>
     private class GameDisplayModel
     {

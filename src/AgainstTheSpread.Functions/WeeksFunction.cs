@@ -1,4 +1,4 @@
-using AgainstTheSpread.Core.Interfaces;
+using AgainstTheSpread.Data.Interfaces;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
@@ -12,12 +12,12 @@ namespace AgainstTheSpread.Functions;
 public class WeeksFunction
 {
     private readonly ILogger<WeeksFunction> _logger;
-    private readonly IStorageService _storageService;
+    private readonly IGameService _gameService;
 
-    public WeeksFunction(ILogger<WeeksFunction> logger, IStorageService storageService)
+    public WeeksFunction(ILogger<WeeksFunction> logger, IGameService gameService)
     {
         _logger = logger;
-        _storageService = storageService;
+        _gameService = gameService;
     }
 
     /// <summary>
@@ -38,7 +38,7 @@ public class WeeksFunction
                 ? DateTime.UtcNow.Year
                 : int.Parse(yearString);
 
-            var weeks = await _storageService.GetAvailableWeeksAsync(year);
+            var weeks = await _gameService.GetAvailableWeeksAsync(year);
 
             var response = req.CreateResponse(HttpStatusCode.OK);
             await response.WriteAsJsonAsync(new

@@ -1,4 +1,5 @@
 using AgainstTheSpread.Core.Interfaces;
+using AgainstTheSpread.Data.Interfaces;
 using AgainstTheSpread.Functions.Helpers;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
@@ -8,23 +9,27 @@ using System.Net;
 namespace AgainstTheSpread.Functions;
 
 /// <summary>
-/// Azure Function for uploading bowl game lines
+/// Azure Function for uploading bowl game lines.
+/// Syncs to database as primary storage, archives to blob storage.
 /// </summary>
 public class UploadBowlLinesFunction
 {
     private readonly ILogger<UploadBowlLinesFunction> _logger;
     private readonly IBowlExcelService _bowlExcelService;
-    private readonly IStorageService _storageService;
+    private readonly IArchiveService _archiveService;
+    private readonly IBowlGameService _bowlGameService;
     private readonly AuthHelper _authHelper;
 
     public UploadBowlLinesFunction(
         ILogger<UploadBowlLinesFunction> logger,
         IBowlExcelService bowlExcelService,
-        IStorageService storageService)
+        IArchiveService archiveService,
+        IBowlGameService bowlGameService)
     {
         _logger = logger;
         _bowlExcelService = bowlExcelService;
-        _storageService = storageService;
+        _archiveService = archiveService;
+        _bowlGameService = bowlGameService;
         _authHelper = new AuthHelper(logger);
     }
 
@@ -81,12 +86,31 @@ public class UploadBowlLinesFunction
                 return badResponse;
             }
 
-            // Upload to blob storage
-            stream.Position = 0; // Reset stream
-            await _storageService.UploadBowlLinesAsync(stream, year);
+            // Sync bowl games to database (primary storage)
+            var syncInputs = bowlLines.Games.Select(g => new BowlGameSyncInput(
+                g.GameNumber,
+                g.BowlName,
+                g.Favorite,
+                g.Underdog,
+                g.Line,
+                g.GameDate));
 
-            _logger.LogInformation("Successfully uploaded {Count} bowl games for year {Year}",
-                bowlLines.Games.Count, year);
+            var gamesSynced = await _bowlGameService.SyncBowlGamesAsync(year, syncInputs);
+            _logger.LogInformation("Synced {Count} bowl games to database for year {Year}", gamesSynced, year);
+
+            // Archive to blob storage (optional - don't fail if archive fails)
+            string? archiveWarning = null;
+            try
+            {
+                stream.Position = 0; // Reset stream
+                await _archiveService.ArchiveBowlLinesAsync(stream, year);
+                _logger.LogInformation("Archived bowl Excel file to blob storage for year {Year}", year);
+            }
+            catch (Exception archiveEx)
+            {
+                _logger.LogWarning(archiveEx, "Failed to archive bowl Excel file to blob storage for year {Year}. Database sync succeeded.", year);
+                archiveWarning = "Bowl games synced to database but Excel archive failed. Games are available.";
+            }
 
             var response = req.CreateResponse(HttpStatusCode.OK);
             await response.WriteAsJsonAsync(new
@@ -94,7 +118,9 @@ public class UploadBowlLinesFunction
                 success = true,
                 year = year,
                 gamesCount = bowlLines.Games.Count,
-                message = $"Successfully uploaded {bowlLines.Games.Count} bowl games for {year}"
+                gamesSynced = gamesSynced,
+                message = $"Successfully uploaded {bowlLines.Games.Count} bowl games for {year}",
+                warning = archiveWarning
             });
             return response;
         }

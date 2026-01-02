@@ -9,25 +9,26 @@ using System.Net;
 namespace AgainstTheSpread.Functions;
 
 /// <summary>
-/// Azure Function for uploading weekly game lines
+/// Azure Function for uploading weekly game lines.
+/// Syncs to database as primary storage, archives to blob storage.
 /// </summary>
 public class UploadLinesFunction
 {
     private readonly ILogger<UploadLinesFunction> _logger;
     private readonly IExcelService _excelService;
-    private readonly IStorageService _storageService;
-    private readonly IGameService? _gameService;
+    private readonly IArchiveService _archiveService;
+    private readonly IGameService _gameService;
     private readonly AuthHelper _authHelper;
 
     public UploadLinesFunction(
         ILogger<UploadLinesFunction> logger,
         IExcelService excelService,
-        IStorageService storageService,
-        IGameService? gameService = null)
+        IArchiveService archiveService,
+        IGameService gameService)
     {
         _logger = logger;
         _excelService = excelService;
-        _storageService = storageService;
+        _archiveService = archiveService;
         _gameService = gameService;
         _authHelper = new AuthHelper(logger);
     }
@@ -91,34 +92,28 @@ public class UploadLinesFunction
                 return badResponse;
             }
 
-            // Upload to blob storage
-            stream.Position = 0; // Reset stream
-            await _storageService.UploadWeeklyLinesAsync(stream, week, year);
+            // Sync games to database (primary storage)
+            var gameInputs = weeklyLines.Games.Select(g => new GameSyncInput(
+                g.Favorite,
+                g.Underdog,
+                g.Line,
+                g.GameDate));
 
-            _logger.LogInformation("Successfully uploaded {Count} games for week {Week}",
-                weeklyLines.Games.Count, week);
+            var gamesSynced = await _gameService.SyncGamesFromLinesAsync(year, week, gameInputs);
+            _logger.LogInformation("Synced {Count} games to database for week {Week}", gamesSynced, week);
 
-            // Sync games to database if service is available (graceful - don't fail upload if DB sync fails)
-            var gamesSynced = 0;
-            string? dbSyncWarning = null;
-            if (_gameService != null)
+            // Archive to blob storage (optional - don't fail if archive fails)
+            string? archiveWarning = null;
+            try
             {
-                try
-                {
-                    var gameInputs = weeklyLines.Games.Select(g => new GameSyncInput(
-                        g.Favorite,
-                        g.Underdog,
-                        g.Line,
-                        g.GameDate));
-
-                    gamesSynced = await _gameService.SyncGamesFromLinesAsync(year, week, gameInputs);
-                    _logger.LogInformation("Synced {Count} games to database for week {Week}", gamesSynced, week);
-                }
-                catch (Exception dbEx)
-                {
-                    _logger.LogWarning(dbEx, "Failed to sync games to database for week {Week}. Upload to blob storage succeeded.", week);
-                    dbSyncWarning = "Games uploaded to storage but database sync failed. Games will still be available.";
-                }
+                stream.Position = 0; // Reset stream
+                await _archiveService.ArchiveWeeklyLinesAsync(stream, week, year);
+                _logger.LogInformation("Archived Excel file to blob storage for week {Week}", week);
+            }
+            catch (Exception archiveEx)
+            {
+                _logger.LogWarning(archiveEx, "Failed to archive Excel file to blob storage for week {Week}. Database sync succeeded.", week);
+                archiveWarning = "Games synced to database but Excel archive failed. Games are available.";
             }
 
             var response = req.CreateResponse(HttpStatusCode.OK);
@@ -130,7 +125,7 @@ public class UploadLinesFunction
                 gamesCount = weeklyLines.Games.Count,
                 gamesSynced = gamesSynced,
                 message = $"Successfully uploaded {weeklyLines.Games.Count} games for Week {week}",
-                warning = dbSyncWarning
+                warning = archiveWarning
             });
             return response;
         }

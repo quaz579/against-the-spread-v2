@@ -1,5 +1,6 @@
 using AgainstTheSpread.Core.Interfaces;
 using AgainstTheSpread.Core.Models;
+using AgainstTheSpread.Data.Interfaces;
 using AgainstTheSpread.Functions;
 using FluentAssertions;
 using Microsoft.Azure.Functions.Worker;
@@ -19,15 +20,15 @@ public class FunctionsTests
     {
         // Arrange
         var mockLogger = new Mock<ILogger<WeeksFunction>>();
-        var mockStorage = new Mock<IStorageService>();
-        mockStorage.Setup(s => s.GetAvailableWeeksAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+        var mockGameService = new Mock<IGameService>();
+        mockGameService.Setup(s => s.GetAvailableWeeksAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<int> { 1, 2, 3 });
 
-        var function = new WeeksFunction(mockLogger.Object, mockStorage.Object);
+        var function = new WeeksFunction(mockLogger.Object, mockGameService.Object);
 
         // Act & Assert - basic construction test
         function.Should().NotBeNull();
-        mockStorage.Verify(s => s.GetAvailableWeeksAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        mockGameService.Verify(s => s.GetAvailableWeeksAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -35,9 +36,9 @@ public class FunctionsTests
     {
         // Arrange
         var mockLogger = new Mock<ILogger<LinesFunction>>();
-        var mockStorage = new Mock<IStorageService>();
+        var mockGameService = new Mock<IGameService>();
 
-        var function = new LinesFunction(mockLogger.Object, mockStorage.Object);
+        var function = new LinesFunction(mockLogger.Object, mockGameService.Object);
 
         // Act & Assert - basic construction test
         function.Should().NotBeNull();

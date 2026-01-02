@@ -1,4 +1,5 @@
-using AgainstTheSpread.Core.Interfaces;
+using AgainstTheSpread.Core.Models;
+using AgainstTheSpread.Data.Interfaces;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
@@ -13,12 +14,12 @@ namespace AgainstTheSpread.Functions;
 public class BowlLinesFunction
 {
     private readonly ILogger<BowlLinesFunction> _logger;
-    private readonly IStorageService _storageService;
+    private readonly IBowlGameService _bowlGameService;
 
-    public BowlLinesFunction(ILogger<BowlLinesFunction> logger, IStorageService storageService)
+    public BowlLinesFunction(ILogger<BowlLinesFunction> logger, IBowlGameService bowlGameService)
     {
         _logger = logger;
-        _storageService = storageService;
+        _bowlGameService = bowlGameService;
     }
 
     /// <summary>
@@ -38,9 +39,9 @@ public class BowlLinesFunction
                 ? DateTime.UtcNow.Year
                 : int.Parse(yearString!);
 
-            var lines = await _storageService.GetBowlLinesAsync(year);
+            var gameEntities = await _bowlGameService.GetBowlGamesAsync(year);
 
-            if (lines == null)
+            if (gameEntities == null || gameEntities.Count == 0)
             {
                 var notFoundResponse = req.CreateResponse(HttpStatusCode.NotFound);
                 await notFoundResponse.WriteAsJsonAsync(new
@@ -49,6 +50,22 @@ public class BowlLinesFunction
                 });
                 return notFoundResponse;
             }
+
+            // Transform database entities to BowlLines format for backward compatibility
+            var lines = new BowlLines
+            {
+                Year = year,
+                UploadedAt = gameEntities.Min(g => g.GameDate), // Use earliest game date as proxy
+                Games = gameEntities.Select(g => new BowlGame
+                {
+                    BowlName = g.BowlName,
+                    GameNumber = g.GameNumber,
+                    Favorite = g.Favorite,
+                    Underdog = g.Underdog,
+                    Line = g.Line,
+                    GameDate = g.GameDate
+                }).ToList()
+            };
 
             var response = req.CreateResponse(HttpStatusCode.OK);
             await response.WriteAsJsonAsync(lines);
@@ -80,7 +97,7 @@ public class BowlLinesFunction
                 ? DateTime.UtcNow.Year
                 : int.Parse(yearString!);
 
-            var exists = await _storageService.BowlLinesExistAsync(year);
+            var exists = await _bowlGameService.BowlGamesExistAsync(year);
 
             var response = req.CreateResponse(HttpStatusCode.OK);
             await response.WriteAsJsonAsync(new { year, exists });

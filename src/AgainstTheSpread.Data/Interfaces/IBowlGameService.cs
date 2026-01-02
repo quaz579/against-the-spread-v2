@@ -53,6 +53,14 @@ public interface IBowlGameService
     Task<int> GetTotalGamesCountAsync(int year, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Checks if bowl games exist for a specific year.
+    /// </summary>
+    /// <param name="year">The bowl season year.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if bowl games exist for the year, false otherwise.</returns>
+    Task<bool> BowlGamesExistAsync(int year, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Enters a result for a single bowl game.
     /// </summary>
     /// <param name="gameId">The bowl game ID.</param>

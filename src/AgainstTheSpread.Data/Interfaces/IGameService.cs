@@ -46,6 +46,14 @@ public interface IGameService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The game if found, null otherwise.</returns>
     Task<GameEntity?> GetByIdAsync(int gameId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets list of weeks that have games for a specific year.
+    /// </summary>
+    /// <param name="year">The season year.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>List of week numbers that have games.</returns>
+    Task<List<int>> GetAvailableWeeksAsync(int year, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

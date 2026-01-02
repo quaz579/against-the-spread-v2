@@ -1,4 +1,5 @@
 using AgainstTheSpread.Core.Interfaces;
+using AgainstTheSpread.Data.Interfaces;
 using AgainstTheSpread.Functions;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -14,13 +15,15 @@ public class UploadLinesFunctionTests
 {
     private readonly Mock<ILogger<UploadLinesFunction>> _mockLogger;
     private readonly Mock<IExcelService> _mockExcelService;
-    private readonly Mock<IStorageService> _mockStorageService;
+    private readonly Mock<IArchiveService> _mockArchiveService;
+    private readonly Mock<IGameService> _mockGameService;
 
     public UploadLinesFunctionTests()
     {
         _mockLogger = new Mock<ILogger<UploadLinesFunction>>();
         _mockExcelService = new Mock<IExcelService>();
-        _mockStorageService = new Mock<IStorageService>();
+        _mockArchiveService = new Mock<IArchiveService>();
+        _mockGameService = new Mock<IGameService>();
     }
 
     [Fact]
@@ -28,9 +31,10 @@ public class UploadLinesFunctionTests
     {
         // Arrange & Act
         var function = new UploadLinesFunction(
-            _mockLogger.Object, 
-            _mockExcelService.Object, 
-            _mockStorageService.Object);
+            _mockLogger.Object,
+            _mockExcelService.Object,
+            _mockArchiveService.Object,
+            _mockGameService.Object);
 
         // Assert
         function.Should().NotBeNull();
@@ -41,7 +45,7 @@ public class UploadLinesFunctionTests
     /// When Google OAuth authentication through Azure Static Web Apps provides
     /// the user's email in the UserDetails property instead of the Claims array,
     /// the authentication should still work.
-    /// 
+    ///
     /// This is the scenario that was causing the "No email claim found for user {userId}" error.
     /// </summary>
     [Fact]
@@ -49,22 +53,23 @@ public class UploadLinesFunctionTests
     {
         // This test documents the fix without requiring complex HTTP mocking.
         // The actual authentication logic is tested via integration/E2E tests.
-        
+
         // The fix adds a third fallback for email retrieval:
         // 1. Check "email" claim type
         // 2. Check "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress" claim type
         // 3. Check UserDetails property (NEW - this is the fix)
-        
+
         // When UserDetails contains the email, the authentication flow succeeds
         // instead of failing with "No email claim found"
-        
+
         var function = new UploadLinesFunction(
             _mockLogger.Object,
             _mockExcelService.Object,
-            _mockStorageService.Object);
+            _mockArchiveService.Object,
+            _mockGameService.Object);
 
         function.Should().NotBeNull();
-        
+
         // The actual behavior is validated by:
         // - Manual testing with real Google OAuth
         // - Integration tests with mocked authentication headers
