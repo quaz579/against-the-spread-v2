@@ -15,3 +15,6 @@ sql_max_size_gb         = 2
 
 # Enable test auth bypass for E2E testing (dev only)
 enable_test_auth = true
+
+# Disable game locking for testing with historical data (dev only)
+disable_game_locking = true

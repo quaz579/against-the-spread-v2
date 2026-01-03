@@ -97,6 +97,10 @@ public class GameEntityTests
 
     #region IsLocked Computed Property Tests
 
+    // Note: These tests verify the default behavior when DISABLE_GAME_LOCKING is not set.
+    // The flag bypass behavior is tested via E2E tests since the environment variable is
+    // cached in a static readonly field at assembly load time.
+
     [Fact]
     public void IsLocked_WhenGameDateInPast_ReturnsTrue()
     {

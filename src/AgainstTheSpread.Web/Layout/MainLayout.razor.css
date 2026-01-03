@@ -4,6 +4,27 @@
     flex-direction: column;
 }
 
+.testing-mode-banner {
+    background-color: #dc3545;
+    color: white;
+    padding: 0.75rem 1rem;
+    text-align: center;
+    font-size: 0.95rem;
+    width: 100%;
+    z-index: 1000;
+    position: sticky;
+    top: 0;
+}
+
+.testing-mode-banner strong {
+    font-weight: 700;
+}
+
+.testing-mode-banner em {
+    font-style: italic;
+    opacity: 0.9;
+}
+
 main {
     flex: 1;
 }
