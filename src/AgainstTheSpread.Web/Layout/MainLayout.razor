@@ -2,15 +2,15 @@
 @inject AgainstTheSpread.Web.Services.ApiService ApiService
 @inject NavigationManager NavigationManager
 
+@if (_gameLockingDisabled)
+{
+    <div class="testing-mode-banner">
+        <strong>TESTING MODE:</strong> Game locking is disabled.
+        Picks can be made on past games.
+        <em>Remember to disable this before the real season!</em>
+    </div>
+}
 <div class="page">
-    @if (_gameLockingDisabled)
-    {
-        <div class="testing-mode-banner">
-            <strong>TESTING MODE:</strong> Game locking is disabled.
-            Picks can be made on past games.
-            <em>Remember to disable this before the real season!</em>
-        </div>
-    }
     <div class="sidebar">
         <NavMenu />
     </div>

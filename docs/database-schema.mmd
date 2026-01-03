@@ -1,0 +1,80 @@
+erDiagram
+    Users {
+        uniqueidentifier Id PK
+        nvarchar GoogleSubjectId
+        nvarchar Email
+        nvarchar DisplayName
+        datetime2 CreatedAt
+        datetime2 LastLoginAt
+        bit IsActive
+    }
+
+    Games {
+        int Id PK
+        int Year
+        int Week
+        nvarchar Favorite
+        nvarchar Underdog
+        decimal Line
+        datetime2 GameDate
+        int FavoriteScore
+        int UnderdogScore
+        nvarchar SpreadWinner
+        bit IsPush
+        datetime2 ResultEnteredAt
+        uniqueidentifier ResultEnteredBy
+    }
+
+    Picks {
+        int Id PK
+        uniqueidentifier UserId FK
+        int GameId FK
+        nvarchar SelectedTeam
+        datetime2 SubmittedAt
+        datetime2 UpdatedAt
+        int Year
+        int Week
+    }
+
+    BowlGames {
+        int Id PK
+        int Year
+        int GameNumber
+        nvarchar BowlName
+        nvarchar Favorite
+        nvarchar Underdog
+        decimal Line
+        datetime2 GameDate
+        int FavoriteScore
+        int UnderdogScore
+        nvarchar SpreadWinner
+        bit IsPush
+        nvarchar OutrightWinner
+        datetime2 ResultEnteredAt
+        uniqueidentifier ResultEnteredBy
+    }
+
+    BowlPicks {
+        int Id PK
+        uniqueidentifier UserId FK
+        int BowlGameId FK
+        nvarchar SpreadPick
+        int ConfidencePoints
+        nvarchar OutrightWinnerPick
+        datetime2 SubmittedAt
+        datetime2 UpdatedAt
+        int Year
+    }
+
+    TeamAliases {
+        int Id PK
+        nvarchar Alias
+        nvarchar CanonicalName
+        datetime2 CreatedAt
+        datetime2 UpdatedAt
+    }
+
+    Users ||--o{ Picks : "makes"
+    Users ||--o{ BowlPicks : "makes"
+    Games ||--o{ Picks : "has"
+    BowlGames ||--o{ BowlPicks : "has"

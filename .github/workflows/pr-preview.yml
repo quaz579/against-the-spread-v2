@@ -6,12 +6,18 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  pull-requests: write
+
 concurrency:
   group: pr-preview-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 env:
   NODE_VERSION: '20'
+  SWA_NAME: 'swa-dev-cus-atsv2'
+  RESOURCE_GROUP: 'rg-dev-cus-atsv2'
 
 jobs:
   # Deploy PR preview environment (Azure builds the code)
@@ -20,12 +26,63 @@ jobs:
     runs-on: ubuntu-latest
     name: Deploy PR Preview
     outputs:
-      preview_url: ${{ steps.get_url.outputs.preview_url }}
+      preview_url: ${{ steps.deploy.outputs.static_web_app_url }}
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: true
           lfs: false
+
+      # Azure login for cleanup step
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: '{"clientId":"${{ secrets.ARM_CLIENT_ID }}","clientSecret":"${{ secrets.ARM_CLIENT_SECRET }}","subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.ARM_TENANT_ID }}"}'
+
+      # Cleanup orphaned staging environments (Free tier limit: 3)
+      # This finds staging envs for PRs that no longer exist and deletes them
+      - name: Cleanup orphaned staging environments
+        run: |
+          echo "Checking for orphaned staging environments..."
+
+          # Get list of staging environments (excluding 'default' production)
+          ENVS=$(az staticwebapp environment list \
+            --name ${{ env.SWA_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "[?name!='default'].name" -o tsv)
+
+          echo "Found staging environments: $ENVS"
+
+          # Get open PR numbers from GitHub API
+          OPEN_PRS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls?state=open" \
+            | jq -r '.[].number')
+
+          echo "Open PR numbers: $OPEN_PRS"
+
+          for ENV in $ENVS; do
+            # Extract PR number from environment name (e.g., "pr13" -> "13")
+            if [[ $ENV =~ ^pr([0-9]+)$ ]]; then
+              PR_NUM="${BASH_REMATCH[1]}"
+
+              # Check if this PR is still open
+              if ! echo "$OPEN_PRS" | grep -q "^${PR_NUM}$"; then
+                echo "Deleting orphaned environment '$ENV' (PR #$PR_NUM is closed)"
+                az staticwebapp environment delete \
+                  --name ${{ env.SWA_NAME }} \
+                  --resource-group ${{ env.RESOURCE_GROUP }} \
+                  --environment-name "$ENV" \
+                  --yes || echo "Warning: Failed to delete environment $ENV"
+              else
+                echo "Keeping environment '$ENV' (PR #$PR_NUM is still open)"
+              fi
+            else
+              # Non-PR environments (branch deployments) - check if older than 7 days
+              echo "Found non-PR environment: $ENV (keeping)"
+            fi
+          done
+
+          echo "Cleanup complete"
 
       - name: Deploy to PR Preview Environment
         id: deploy
@@ -38,20 +95,15 @@ jobs:
           api_location: 'src/AgainstTheSpread.Functions'
           output_location: 'wwwroot'
 
-      - name: Get Preview URL
-        id: get_url
+      - name: Output Preview URL
         run: |
-          # Azure SWA preview URL format: https://<unique-id>-pr<number>.<region>.azurestaticapps.net
-          # For dev SWA: blue-smoke-0b4410710, region is centralus (2)
-          PREVIEW_URL="https://blue-smoke-0b4410710-pr${{ github.event.pull_request.number }}.2.azurestaticapps.net"
-          echo "preview_url=$PREVIEW_URL" >> $GITHUB_OUTPUT
-          echo "Preview URL: $PREVIEW_URL"
+          echo "Preview URL: ${{ steps.deploy.outputs.static_web_app_url }}"
 
       - name: Comment Preview URL on PR
         uses: actions/github-script@v7
         with:
           script: |
-            const previewUrl = '${{ steps.get_url.outputs.preview_url }}';
+            const previewUrl = '${{ steps.deploy.outputs.static_web_app_url }}';
             const body = `## 🚀 PR Preview Deployed
 
             | Environment | URL |
@@ -117,15 +169,16 @@ jobs:
 
           # Wait up to 5 minutes for deployment to be accessible
           for i in {1..30}; do
-            if curl -s -o /dev/null -w "%{http_code}" "$PREVIEW_URL" | grep -q "200\|301\|302"; then
-              echo "Preview is ready!"
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$PREVIEW_URL" || echo "000")
+            if [[ "$HTTP_CODE" =~ ^(200|301|302)$ ]]; then
+              echo "Preview is ready! (HTTP $HTTP_CODE)"
               exit 0
             fi
-            echo "Attempt $i: Preview not ready yet, waiting 10 seconds..."
+            echo "Attempt $i/30: Preview not ready yet (HTTP $HTTP_CODE), waiting 10 seconds..."
             sleep 10
           done
 
-          echo "Preview deployment failed to become ready"
+          echo "Preview deployment failed to become ready after 5 minutes"
           exit 1
 
       - name: Run Playwright E2E tests
