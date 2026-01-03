@@ -28,11 +28,39 @@ This is a Progressive Web Application (PWA) for managing a weekly college footba
 
 ### Testing Requirements
 
-**Always follow Test-Driven Development (TDD):**
-1. Write failing tests first
-2. Implement minimum code to pass tests
-3. Refactor and optimize
-4. Update documentation
+**Always follow Test-Driven Development (TDD) - Red-Green-Refactor:**
+
+This project follows TDD principles inspired by Martin Fowler's teachings on software craftsmanship.
+
+**The TDD Cycle:**
+1. **RED** - Write a failing test that defines desired behavior
+2. **GREEN** - Write the minimum code to make the test pass
+3. **REFACTOR** - Clean up the code while keeping tests green
+
+**Key Principles (Martin Fowler / Kent Beck style):**
+- **Write tests first** - Tests are design tools, not just verification
+- **Small steps** - Make one small change at a time, run tests frequently
+- **Refactor mercilessly** - Clean code with confidence because tests protect you
+- **Simple design** - Do the simplest thing that could possibly work
+- **No speculation** - Don't add features "just in case" (YAGNI)
+- **Express intent** - Code should read like well-written prose
+- **Remove duplication** - DRY (Don't Repeat Yourself)
+
+**Refactoring Guidelines:**
+- Refactor only when tests are green
+- Make small, reversible changes
+- Run tests after each refactoring step
+- Extract methods when code gets complex
+- Rename for clarity - names should reveal intent
+- Replace conditionals with polymorphism when appropriate
+
+**Code Smells to Watch For:**
+- Long methods (>20 lines is a warning sign)
+- Large classes with too many responsibilities
+- Duplicate code across methods/classes
+- Comments explaining "what" instead of "why"
+- Feature envy (method uses another class's data excessively)
+- Primitive obsession (using primitives instead of small objects)
 
 **CRITICAL: All tests must pass before any task is complete:**
 - Unit tests: `dotnet test`
