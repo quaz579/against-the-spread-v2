@@ -149,9 +149,18 @@ code {
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.stats-card:hover {
+.stats-card:focus-visible {
     transform: translateY(-4px);
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    outline: 2px solid #18453B;
+    outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .stats-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
 }
 
 .stats-card .display-4 {
@@ -197,16 +206,19 @@ code {
 .badge-gold {
     background-color: #FFD700 !important;
     color: #1a1a1a !important;
+    font-weight: 600;
 }
 
 .badge-silver {
     background-color: #C0C0C0 !important;
     color: #1a1a1a !important;
+    font-weight: 600;
 }
 
 .badge-bronze {
     background-color: #CD7F32 !important;
-    color: white !important;
+    color: #1a1a1a !important;
+    font-weight: 600;
 }
 
 /* Leaderboard current user highlight */

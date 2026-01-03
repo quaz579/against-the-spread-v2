@@ -28,11 +28,39 @@ This is a Progressive Web Application (PWA) for managing a weekly college footba
 
 ### Testing Requirements
 
-**Always follow Test-Driven Development (TDD):**
-1. Write failing tests first
-2. Implement minimum code to pass tests
-3. Refactor and optimize
-4. Update documentation
+**Always follow Test-Driven Development (TDD) - Red-Green-Refactor:**
+
+This project follows TDD principles inspired by Martin Fowler's teachings on software craftsmanship.
+
+**The TDD Cycle:**
+1. **RED** - Write a failing test that defines desired behavior
+2. **GREEN** - Write the minimum code to make the test pass
+3. **REFACTOR** - Clean up the code while keeping tests green
+
+**Key Principles (Martin Fowler / Kent Beck style):**
+- **Write tests first** - Tests are design tools, not just verification
+- **Small steps** - Make one small change at a time, run tests frequently
+- **Refactor mercilessly** - Clean code with confidence because tests protect you
+- **Simple design** - Do the simplest thing that could possibly work
+- **No speculation** - Don't add features "just in case" (YAGNI)
+- **Express intent** - Code should read like well-written prose
+- **Remove duplication** - DRY (Don't Repeat Yourself)
+
+**Refactoring Guidelines:**
+- Refactor only when tests are green
+- Make small, reversible changes
+- Run tests after each refactoring step
+- Extract methods when code gets complex
+- Rename for clarity - names should reveal intent
+- Replace conditionals with polymorphism when appropriate
+
+**Code Smells to Watch For:**
+- Long methods (>20 lines is a warning sign)
+- Large classes with too many responsibilities
+- Duplicate code across methods/classes
+- Comments explaining "what" instead of "why"
+- Feature envy (method uses another class's data excessively)
+- Primitive obsession (using primitives instead of small objects)
 
 **CRITICAL: All tests must pass before any task is complete:**
 - Unit tests: `dotnet test`
@@ -280,6 +308,13 @@ fix(web): correct game selection validation
 - `TESTING.md` - Testing strategy
 - `.agents.md` - Agent development guide
 - `implementation-plan.md` - Development roadmap
+- `docs/database-schema.mmd` - Database ER diagram (Mermaid format)
+
+**Database Schema Documentation:**
+When making changes to database models, migrations, or Entity Framework entities:
+- Update `docs/database-schema.mmd` to reflect the current schema
+- Include all tables, columns, data types, and relationships
+- Keep foreign key relationships accurate
 
 ### Performance
 
@@ -301,6 +336,41 @@ fix(web): correct game selection validation
 - Managed via Terraform (infrastructure/terraform/)
 - Do NOT manually modify Azure resources
 - Update Terraform files for infrastructure changes
+
+### Database Administration
+
+**Running SQL queries against Azure SQL Database:**
+
+Install Microsoft SQL tools via Homebrew (if not already installed):
+```bash
+# Check if sqlcmd is installed
+which sqlcmd || (brew tap microsoft/mssql-release https://github.com/Microsoft/homebrew-mssql-release && HOMEBREW_ACCEPT_EULA=Y brew install msodbcsql18 mssql-tools18)
+```
+
+Run queries using `sqlcmd`:
+```bash
+# Load credentials and run a query
+cd infrastructure/terraform
+source .credentials
+sqlcmd -S $DEV_SQL_SERVER -d $DEV_SQL_DATABASE -U $SQL_ADMIN_LOGIN -P "$SQL_ADMIN_PASSWORD" -N -C -Q "SELECT * FROM Users"
+
+# For production (use with caution!)
+sqlcmd -S $PROD_SQL_SERVER -d $PROD_SQL_DATABASE -U $SQL_ADMIN_LOGIN -P "$SQL_ADMIN_PASSWORD" -N -C -Q "SELECT * FROM Users"
+```
+
+**Database connection details:**
+- Dev: `sql-dev-cus-atsv2.database.windows.net` / `sqldb-dev-cus-atsv2`
+- Prod: `sql-prod-cus-atsv2.database.windows.net` / `sqldb-prod-cus-atsv2`
+- Credentials: `infrastructure/terraform/.credentials`
+
+**Tables (see `docs/database-schema.mmd` for full schema):**
+- `Users` - User accounts
+- `Games` - Weekly games with lines
+- `Picks` - User picks for weekly games
+- `BowlGames` - Bowl games with lines
+- `BowlPicks` - User picks for bowl games
+- `TeamAliases` - Team name mappings
+- `__EFMigrationsHistory` - EF Core migrations (do not modify)
 
 ### Task Acceptance Criteria
 

@@ -1,7 +1,9 @@
 @page "/leaderboard"
 @using AgainstTheSpread.Web.Services
+@using Microsoft.Extensions.Logging
 @inject ApiService ApiService
 @inject IAuthStateService AuthState
+@inject ILogger<Leaderboard> Logger
 
 <PageTitle>Leaderboard - Against The Spread</PageTitle>
 
@@ -228,8 +230,18 @@
         availableYears = Enumerable.Range(currentYear - 2, 3).Reverse().ToList();
 
         // Get current user ID for highlighting
-        await AuthState.InitializeAsync();
-        currentUserId = AuthState.UserId;
+        try
+        {
+            await AuthState.InitializeAsync();
+            currentUserId = AuthState.UserId;
+        }
+        catch (Exception ex)
+        {
+            // Log initialization failure; user highlighting will be disabled if auth is unavailable
+            Logger.LogError(ex, "Failed to initialize authentication state in Leaderboard");
+            // User highlighting will be disabled, but leaderboard data will still load
+            currentUserId = null;
+        }
 
         await LoadData();
     }

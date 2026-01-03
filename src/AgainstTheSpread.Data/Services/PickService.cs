@@ -40,6 +40,7 @@ public class PickService : IPickService
         }
 
         var submittedCount = 0;
+        var deletedCount = 0;
         var rejectedPicks = new List<RejectedPick>();
 
         // Get all relevant game IDs in one query
@@ -48,10 +49,27 @@ public class PickService : IPickService
             .Where(g => gameIds.Contains(g.Id))
             .ToDictionaryAsync(g => g.Id, cancellationToken);
 
-        // Get existing picks for this user and these games
-        var existingPicks = await _context.Picks
-            .Where(p => p.UserId == userId && gameIds.Contains(p.GameId))
-            .ToDictionaryAsync(p => p.GameId, cancellationToken);
+        // Get ALL existing picks for this user/year/week (not just the submitted game IDs)
+        var allExistingPicks = await _context.Picks
+            .Include(p => p.Game)
+            .Where(p => p.UserId == userId && p.Year == year && p.Week == week)
+            .ToListAsync(cancellationToken);
+
+        var existingPicksByGameId = allExistingPicks.ToDictionary(p => p.GameId);
+
+        // Delete picks for unlocked games that are NOT in the new submission
+        // This ensures the user's picks for this week match exactly what they submitted
+        var picksToDelete = allExistingPicks
+            .Where(p => !gameIds.Contains(p.GameId) && p.Game != null && !p.Game.IsLocked)
+            .ToList();
+
+        foreach (var pickToDelete in picksToDelete)
+        {
+            _context.Picks.Remove(pickToDelete);
+            deletedCount++;
+            _logger.LogDebug("Deleted pick for user {UserId} game {GameId} (not in new submission)",
+                userId, pickToDelete.GameId);
+        }
 
         foreach (var pickSubmission in picksList)
         {
@@ -82,7 +100,7 @@ public class PickService : IPickService
             }
 
             // Check for existing pick
-            if (existingPicks.TryGetValue(pickSubmission.GameId, out var existingPick))
+            if (existingPicksByGameId.TryGetValue(pickSubmission.GameId, out var existingPick))
             {
                 // Update existing pick
                 existingPick.SelectedTeam = pickSubmission.SelectedTeam;
@@ -108,13 +126,13 @@ public class PickService : IPickService
             submittedCount++;
         }
 
-        if (submittedCount > 0)
+        if (submittedCount > 0 || deletedCount > 0)
         {
             await _context.SaveChangesAsync(cancellationToken);
         }
 
-        _logger.LogInformation("Pick submission for user {UserId}: {Submitted} submitted, {Rejected} rejected",
-            userId, submittedCount, rejectedPicks.Count);
+        _logger.LogInformation("Pick submission for user {UserId}: {Submitted} submitted, {Deleted} deleted, {Rejected} rejected",
+            userId, submittedCount, deletedCount, rejectedPicks.Count);
 
         return PickSubmissionResult.CreateSuccess(submittedCount, rejectedPicks.Count > 0 ? rejectedPicks : null);
     }
