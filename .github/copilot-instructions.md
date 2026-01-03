@@ -308,6 +308,13 @@ fix(web): correct game selection validation
 - `TESTING.md` - Testing strategy
 - `.agents.md` - Agent development guide
 - `implementation-plan.md` - Development roadmap
+- `docs/database-schema.mmd` - Database ER diagram (Mermaid format)
+
+**Database Schema Documentation:**
+When making changes to database models, migrations, or Entity Framework entities:
+- Update `docs/database-schema.mmd` to reflect the current schema
+- Include all tables, columns, data types, and relationships
+- Keep foreign key relationships accurate
 
 ### Performance
 
