@@ -31,24 +31,21 @@
     {
       "route": "/api/upload-lines",
       "allowedRoles": [
-        "authenticated",
-        "anonymous"
+        "authenticated"
       ]
     },
     {
       "route": "/api/user-picks",
       "methods": ["POST", "GET"],
       "allowedRoles": [
-        "authenticated",
-        "anonymous"
+        "authenticated"
       ]
     },
     {
       "route": "/api/user-picks/*",
       "methods": ["GET"],
       "allowedRoles": [
-        "authenticated",
-        "anonymous"
+        "authenticated"
       ]
     },
     {

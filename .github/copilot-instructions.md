@@ -294,6 +294,39 @@ fix(web): correct game selection validation
 - Rate limiting on API endpoints
 - No sensitive data in responses or logs
 
+**CRITICAL: Azure Static Web Apps Route Security**
+
+The `staticwebapp.config.json` file controls route-level authentication at the SWA platform layer. This runs BEFORE requests reach Azure Functions code.
+
+**Never add "anonymous" to allowedRoles in the committed config files.** This makes the production environment completely insecure.
+
+```json
+// ❌ WRONG - This bypasses ALL authentication in production
+{
+  "route": "/api/*",
+  "allowedRoles": ["authenticated", "anonymous"]
+}
+
+// ✅ CORRECT - Only authenticated users can access API routes
+{
+  "route": "/api/*",
+  "allowedRoles": ["authenticated"]
+}
+```
+
+**How test auth bypass works (Dev environment only):**
+1. The committed `staticwebapp.config.json` requires authentication for API routes
+2. The CI workflow (`deploy.yml`) modifies the config at deploy time for Dev only
+3. Dev gets `anonymous` added to allowedRoles so test auth headers (X-Test-User-Email) can reach the Function code
+4. Production deploys the original secure config - no anonymous access
+
+**The test auth bypass pattern:**
+- SWA platform layer: Allows requests through (in Dev only via CI modification)
+- Azure Function code: `AuthHelper.cs` checks `ENABLE_TEST_AUTH` env var + `X-Test-User-Email` header
+- Production: `ENABLE_TEST_AUTH` is never set, so even if requests reached the code, they'd fail
+
+**If E2E tests fail with 302 redirects in CI:** The SWA platform is blocking requests before they reach Functions. Check that `deploy.yml` is properly modifying the config for Dev deployments.
+
 ### Documentation
 
 **Update documentation when:**
