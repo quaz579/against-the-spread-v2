@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @inject AgainstTheSpread.Web.Services.ApiService ApiService
+@inject NavigationManager NavigationManager
 
 @if (_gameLockingDisabled)
 {
@@ -19,6 +20,36 @@
             @Body
         </article>
     </main>
+
+    <!-- Mobile Bottom Navigation -->
+    <nav class="mobile-bottom-nav" role="navigation" aria-label="Mobile navigation">
+        <a href="" class="bottom-nav-item @(IsCurrentPage("") ? "active" : "")" aria-label="Home">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M6.5 14.5v-3.505c0-.245.25-.495.5-.495h2c.25 0 .5.25.5.5v3.5a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.146-.354L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 7.5v7a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 .5-.5Z"/>
+            </svg>
+            <span>Home</span>
+        </a>
+        <a href="picks" class="bottom-nav-item @(IsCurrentPage("picks") ? "active" : "")" aria-label="Make picks">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M10.854 7.854a.5.5 0 0 0-.708-.708L7.5 9.793 6.354 8.646a.5.5 0 1 0-.708.708l1.5 1.5a.5.5 0 0 0 .708 0l3-3z"/>
+                <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
+            </svg>
+            <span>Picks</span>
+        </a>
+        <a href="leaderboard" class="bottom-nav-item @(IsCurrentPage("leaderboard") ? "active" : "")" aria-label="View leaderboard">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M4 11H2v3h2v-3zm5-4H7v7h2V7zm5-5h-2v12h2V2zm-2-1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1h-2zM6 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm-5 4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3z"/>
+            </svg>
+            <span>Board</span>
+        </a>
+        <a href="my-picks" class="bottom-nav-item @(IsCurrentPage("my-picks") ? "active" : "")" aria-label="View my picks">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+                <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
+            </svg>
+            <span>My Picks</span>
+        </a>
+    </nav>
 </div>
 
 @code {
@@ -27,5 +58,14 @@
     protected override async Task OnInitializedAsync()
     {
         _gameLockingDisabled = await ApiService.IsGameLockingDisabledAsync();
+    }
+
+    private bool IsCurrentPage(string relativePath)
+    {
+        var baseUri = NavigationManager.BaseUri;
+        var currentUri = NavigationManager.Uri;
+        var currentPath = currentUri.Replace(baseUri, "").TrimEnd('/').ToLowerInvariant();
+        var targetPath = relativePath.TrimEnd('/').ToLowerInvariant();
+        return currentPath == targetPath;
     }
 }

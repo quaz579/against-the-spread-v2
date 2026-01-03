@@ -140,3 +140,90 @@ code {
     opacity: 0.6;
     cursor: not-allowed;
 }
+
+/* Stats Cards - My Picks Page */
+.stats-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stats-card:focus-visible {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    outline: 2px solid #258cfb;
+    outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .stats-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+}
+
+.stats-card .display-4 {
+    font-size: 2.5rem;
+    line-height: 1;
+}
+
+.stats-card .stats-icon {
+    opacity: 0.9;
+}
+
+.stats-card .letter-spacing {
+    letter-spacing: 0.1em;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* Wins Card - Spartan Green */
+.stats-card-wins {
+    background: linear-gradient(135deg, #18453B 0%, #0B9A6D 100%);
+    color: white;
+}
+
+/* Losses Card - Red gradient */
+.stats-card-losses {
+    background: linear-gradient(135deg, #DC3545 0%, #c82333 100%);
+    color: white;
+}
+
+/* Pushes Card - Muted gray */
+.stats-card-pushes {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    color: white;
+}
+
+/* Win Rate Card - Gold/Championship theme */
+.stats-card-winrate {
+    background: linear-gradient(135deg, #18453B 0%, #7BBD00 100%);
+    color: white;
+}
+
+/* Leaderboard Medal Badges */
+.badge-gold {
+    background-color: #FFD700 !important;
+    color: #1a1a1a !important;
+}
+
+.badge-silver {
+    background-color: #C0C0C0 !important;
+    color: #1a1a1a !important;
+}
+
+.badge-bronze {
+    background-color: #CD7F32 !important;
+    color: #1a1a1a !important;
+}
+
+/* Leaderboard current user highlight */
+.table-current-user {
+    background-color: rgba(24, 69, 59, 0.15) !important;
+    border-left: 4px solid #18453B;
+}
+
+.table-current-user td:first-child {
+    padding-left: calc(0.5rem - 4px);
+}
