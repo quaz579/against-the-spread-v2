@@ -433,6 +433,26 @@ sqlcmd -S $PROD_SQL_SERVER -d $PROD_SQL_DATABASE -U $SQL_ADMIN_LOGIN -P "$SQL_AD
 - ❌ Breaking Excel format compatibility
 - ❌ Adding unnecessary dependencies
 - ❌ Creating large, unfocused PRs
+- ❌ **Dismissing test failures as "flaky tests"** - This is an anti-pattern
+
+### Handling Test Failures
+
+**CRITICAL: Never dismiss test failures as "flaky tests" without investigation.**
+
+When tests fail (especially in CI):
+1. **Investigate the root cause** - Read the error messages, check logs, reproduce locally
+2. **Fix the underlying issue** - Don't assume it's intermittent without evidence
+3. **If truly flaky, fix the test** - A test that sometimes fails is a bug in the test
+4. **Ask for permission** - If a test is genuinely bad and needs to be skipped/deleted, ask the user first
+
+Common causes of "flaky" tests that are actually real bugs:
+- Environment configuration differences (local vs CI)
+- Race conditions in async code
+- Missing test data setup
+- Authentication/authorization issues
+- Network timeouts that indicate real problems
+
+Remember: Tests exist to catch bugs. A failing test is doing its job until proven otherwise.
 
 ### Success Indicators
 
