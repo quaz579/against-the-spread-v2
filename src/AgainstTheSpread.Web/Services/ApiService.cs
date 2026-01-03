@@ -344,13 +344,54 @@ public class ApiService
     {
         try
         {
-            return await _httpClient.GetFromJsonAsync<List<UserPickDto>>($"api/user-picks/{week}?year={year}");
+            var response = await _httpClient.GetFromJsonAsync<UserWeekPicksResponse>($"api/user-picks/{week}?year={year}");
+            return response?.Picks?.Select(p => new UserPickDto
+            {
+                GameId = p.GameId,
+                SelectedTeam = p.SelectedTeam,
+                SubmittedAt = p.SubmittedAt,
+                Favorite = p.Game?.Favorite ?? string.Empty,
+                Underdog = p.Game?.Underdog ?? string.Empty,
+                Line = p.Game?.Line ?? 0,
+                GameDate = p.Game?.GameDate ?? DateTime.MinValue,
+                IsLocked = p.Game?.IsLocked ?? false
+            }).ToList();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to get user picks for week {Week}, year {Year}", week, year);
             return null;
         }
+    }
+
+    // Response wrapper for user picks API
+    private class UserWeekPicksResponse
+    {
+        public int Year { get; set; }
+        public int Week { get; set; }
+        public List<UserPickApiDto>? Picks { get; set; }
+    }
+
+    private class UserPickApiDto
+    {
+        public int GameId { get; set; }
+        public string SelectedTeam { get; set; } = string.Empty;
+        public DateTime SubmittedAt { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+        public UserPickGameDto? Game { get; set; }
+    }
+
+    private class UserPickGameDto
+    {
+        public int Id { get; set; }
+        public string Favorite { get; set; } = string.Empty;
+        public string Underdog { get; set; } = string.Empty;
+        public decimal Line { get; set; }
+        public DateTime GameDate { get; set; }
+        public bool IsLocked { get; set; }
+        public bool HasResult { get; set; }
+        public string? SpreadWinner { get; set; }
+        public bool? IsPush { get; set; }
     }
 
     /// <summary>
