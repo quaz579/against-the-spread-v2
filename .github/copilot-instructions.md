@@ -298,34 +298,38 @@ fix(web): correct game selection validation
 
 The `staticwebapp.config.json` file controls route-level authentication at the SWA platform layer. This runs BEFORE requests reach Azure Functions code.
 
-**Never add "anonymous" to allowedRoles in the committed config files.** This makes the production environment completely insecure.
+**Never add "anonymous" to allowedRoles in the production config file.** This makes the production environment completely insecure.
 
 ```json
-// ❌ WRONG - This bypasses ALL authentication in production
+// ❌ WRONG for production - This bypasses ALL authentication
 {
   "route": "/api/*",
   "allowedRoles": ["authenticated", "anonymous"]
 }
 
-// ✅ CORRECT - Only authenticated users can access API routes
+// ✅ CORRECT for production - Only authenticated users can access API routes
 {
   "route": "/api/*",
   "allowedRoles": ["authenticated"]
 }
 ```
 
-**How test auth bypass works (Dev environment only):**
-1. The committed `staticwebapp.config.json` requires authentication for API routes
-2. The CI workflow (`deploy.yml`) modifies the config at deploy time for Dev only
-3. Dev gets `anonymous` added to allowedRoles so test auth headers (X-Test-User-Email) can reach the Function code
+**Environment-specific config files:**
+- `staticwebapp.config.json` - Production config (requires authentication)
+- `staticwebapp.config.dev.json` - Dev/preview config (allows anonymous for test auth bypass)
+
+**How test auth bypass works (Dev/Preview environments only):**
+1. The committed `staticwebapp.config.json` requires authentication for API routes (production)
+2. The CI workflows (`deploy.yml` and `pr-preview.yml`) copy `staticwebapp.config.dev.json` over `staticwebapp.config.json` before deploying to dev/preview
+3. Dev/preview gets `anonymous` in allowedRoles so test auth headers (X-Test-User-Email) can reach the Function code
 4. Production deploys the original secure config - no anonymous access
 
 **The test auth bypass pattern:**
-- SWA platform layer: Allows requests through (in Dev only via CI modification)
+- SWA platform layer: Allows requests through (in Dev/Preview via config file swap)
 - Azure Function code: `AuthHelper.cs` checks `ENABLE_TEST_AUTH` env var + `X-Test-User-Email` header
-- Production: `ENABLE_TEST_AUTH` is never set, so even if requests reached the code, they'd fail
+- Production: Uses original `staticwebapp.config.json` (no anonymous), and `ENABLE_TEST_AUTH` is never set
 
-**If E2E tests fail with 302 redirects in CI:** The SWA platform is blocking requests before they reach Functions. Check that `deploy.yml` is properly modifying the config for Dev deployments.
+**If E2E tests fail with 302 redirects in CI:** The SWA platform is blocking requests before they reach Functions. Check that the workflow is copying `staticwebapp.config.dev.json` before deployment.
 
 ### Documentation
 

@@ -1,0 +1,102 @@
+{
+  "auth": {
+    "identityProviders": {
+      "customOpenIdConnectProviders": {
+        "google": {
+          "registration": {
+            "clientIdSettingName": "GOOGLE_CLIENT_ID",
+            "clientCredential": {
+              "clientSecretSettingName": "GOOGLE_CLIENT_SECRET"
+            },
+            "openIdConnectConfiguration": {
+              "wellKnownOpenIdConfiguration": "https://accounts.google.com/.well-known/openid-configuration"
+            }
+          },
+          "login": {
+            "nameClaimType": "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name",
+            "scopes": [
+              "openid",
+              "profile",
+              "email"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "platform": {
+    "apiRuntime": "dotnet-isolated:8.0"
+  },
+  "routes": [
+    {
+      "route": "/api/upload-lines",
+      "allowedRoles": [
+        "authenticated",
+        "anonymous"
+      ]
+    },
+    {
+      "route": "/api/upload-bowl-lines",
+      "allowedRoles": [
+        "authenticated",
+        "anonymous"
+      ]
+    },
+    {
+      "route": "/api/submit-results",
+      "allowedRoles": [
+        "authenticated",
+        "anonymous"
+      ]
+    },
+    {
+      "route": "/api/user-picks",
+      "methods": ["POST", "GET"],
+      "allowedRoles": [
+        "authenticated",
+        "anonymous"
+      ]
+    },
+    {
+      "route": "/api/user-picks/*",
+      "methods": ["GET"],
+      "allowedRoles": [
+        "authenticated",
+        "anonymous"
+      ]
+    },
+    {
+      "route": "/admin",
+      "headers": {
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
+    },
+    {
+      "route": "/.auth/*",
+      "headers": {
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
+    },
+    {
+      "route": "/index.html",
+      "headers": {
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
+    }
+  ],
+  "responseOverrides": {
+    "401": {
+      "redirect": "/.auth/login/google",
+      "statusCode": 302
+    }
+  },
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/images/*.{png,jpg,gif}",
+      "/css/*",
+      "/.auth/*",
+      "/api/*"
+    ]
+  }
+}
