@@ -241,4 +241,52 @@ export class BowlPicksPage {
     const warning = this.page.locator('text=Duplicate confidence');
     return await warning.isVisible().catch(() => false);
   }
+
+  /**
+   * Check if a specific confidence option is disabled for a given game
+   * @param gameNumber - Game number (1-indexed)
+   * @param confidence - Confidence points value to check
+   * @returns true if the option is disabled, false otherwise
+   */
+  async isConfidenceOptionDisabled(gameNumber: number, confidence: number): Promise<boolean> {
+    const gameCard = this.gameCards.nth(gameNumber - 1);
+    const confidenceSelect = gameCard.locator('select.form-select');
+    const option = confidenceSelect.locator(`option[value="${confidence}"]`);
+    const isDisabled = await option.getAttribute('disabled');
+    return isDisabled !== null;
+  }
+
+  /**
+   * Get all disabled confidence options for a specific game
+   * @param gameNumber - Game number (1-indexed)
+   * @returns Array of disabled confidence values
+   */
+  async getDisabledConfidenceOptions(gameNumber: number): Promise<number[]> {
+    const gameCard = this.gameCards.nth(gameNumber - 1);
+    const confidenceSelect = gameCard.locator('select.form-select');
+    const disabledOptions = confidenceSelect.locator('option[disabled]');
+    const count = await disabledOptions.count();
+    const disabledValues: number[] = [];
+
+    for (let i = 0; i < count; i++) {
+      const value = await disabledOptions.nth(i).getAttribute('value');
+      if (value && value !== '0') {
+        disabledValues.push(parseInt(value, 10));
+      }
+    }
+    return disabledValues;
+  }
+
+  /**
+   * Get the text content of a confidence option (to verify "(Used)" indicator)
+   * @param gameNumber - Game number (1-indexed)
+   * @param confidence - Confidence points value
+   * @returns The text content of the option
+   */
+  async getConfidenceOptionText(gameNumber: number, confidence: number): Promise<string> {
+    const gameCard = this.gameCards.nth(gameNumber - 1);
+    const confidenceSelect = gameCard.locator('select.form-select');
+    const option = confidenceSelect.locator(`option[value="${confidence}"]`);
+    return await option.textContent() || '';
+  }
 }

@@ -170,7 +170,7 @@
                                             <option value="@confValue" 
                                                     selected="@(pick.ConfidencePoints == confValue)"
                                                     disabled="@isUsedByOther">
-                                                @confValue @(confValue == bowlLines.TotalGames ? "(Most Confident)" : confValue == 1 ? "(Least Confident)" : "") @(isUsedByOther ? "(Used)" : "")
+                                                @confValue @(confValue == bowlLines.TotalGames ? "(Most Confident)" : confValue == 1 ? "(Least Confident)" : "")@(isUsedByOther ? " (Used)" : "")
                                             </option>
                                         }
                                     </select>
