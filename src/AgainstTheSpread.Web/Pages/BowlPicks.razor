@@ -166,8 +166,11 @@
                                         @for (int i = 1; i <= bowlLines.TotalGames; i++)
                                         {
                                             var confValue = i;
-                                            <option value="@confValue" selected="@(pick.ConfidencePoints == confValue)">
-                                                @confValue @(confValue == bowlLines.TotalGames ? "(Most Confident)" : confValue == 1 ? "(Least Confident)" : "")
+                                            var isUsedByOther = IsConfidencePointUsed(confValue, game.GameNumber);
+                                            <option value="@confValue" 
+                                                    selected="@(pick.ConfidencePoints == confValue)"
+                                                    disabled="@isUsedByOther">
+                                                @confValue @(confValue == bowlLines.TotalGames ? "(Most Confident)" : confValue == 1 ? "(Least Confident)" : "")@(isUsedByOther ? " (Used)" : "")
                                             </option>
                                         }
                                     </select>

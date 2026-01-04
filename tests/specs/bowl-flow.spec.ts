@@ -244,7 +244,7 @@ test.describe('Bowl Picks Complete Flow', () => {
     });
   });
 
-  test('Bowl Picks: validation shows errors for duplicate confidence points', async ({ page }) => {
+  test('Bowl Picks: confidence dropdowns disable already-used values and show (Used) indicator', async ({ page }) => {
     const adminPage = new AdminPage(page);
     const bowlPicksPage = new BowlPicksPage(page);
     const bowlLinesFile = path.join(REFERENCE_DOCS, 'Bowl Lines Test.xlsx');
@@ -252,7 +252,7 @@ test.describe('Bowl Picks Complete Flow', () => {
     // First upload bowl lines
     await adminPage.goto();
     await testEnv.authenticate(adminPage);
-    
+
     try {
       await adminPage.uploadBowlLinesFile(bowlLinesFile, TEST_YEAR);
     } catch {
@@ -269,7 +269,7 @@ test.describe('Bowl Picks Complete Flow', () => {
 
     // Check if games are loaded
     const gamesLoaded = await bowlPicksPage.areGamesLoaded();
-    
+
     if (!gamesLoaded) {
       console.log('Skipping validation test - no bowl lines available');
       test.skip(true, 'No bowl lines available for testing');
@@ -282,28 +282,71 @@ test.describe('Bowl Picks Complete Flow', () => {
       return;
     }
 
-    // Select same confidence for two games (should show duplicate warning)
+    // === STEP 1: Select confidence value for game 1 ===
     await bowlPicksPage.selectSpreadPick(1, true);
-    await bowlPicksPage.selectConfidence(1, 1);
+    await bowlPicksPage.selectConfidence(1, 3); // Select confidence 3 for game 1
     await bowlPicksPage.selectOutrightWinner(1, true);
 
+    // Wait for UI to update
+    await page.waitForTimeout(300);
+
+    // === STEP 2: Verify confidence 3 is disabled in game 2's dropdown ===
+    const isDisabledInGame2 = await bowlPicksPage.isConfidenceOptionDisabled(2, 3);
+    expect(isDisabledInGame2).toBe(true);
+    console.log('Confidence 3 is correctly disabled in game 2 dropdown');
+
+    // Verify the "(Used)" indicator is shown
+    const optionText = await bowlPicksPage.getConfidenceOptionText(2, 3);
+    expect(optionText).toContain('(Used)');
+    console.log(`Option text for confidence 3 in game 2: "${optionText.trim()}"`);
+
+    // Take screenshot showing disabled option
+    await page.screenshot({
+      path: path.join(DOWNLOAD_DIR, 'bowl-validation-disabled-option.png'),
+      fullPage: true
+    });
+
+    // === STEP 3: Change game 1's confidence to a different value ===
+    await bowlPicksPage.selectConfidence(1, 5); // Change to confidence 5
+
+    // Wait for UI to update
+    await page.waitForTimeout(300);
+
+    // === STEP 4: Verify confidence 3 is now available in game 2's dropdown ===
+    const isStillDisabled = await bowlPicksPage.isConfidenceOptionDisabled(2, 3);
+    expect(isStillDisabled).toBe(false);
+    console.log('Confidence 3 is now available in game 2 dropdown after changing game 1');
+
+    // Verify confidence 5 is now disabled in game 2
+    const is5DisabledInGame2 = await bowlPicksPage.isConfidenceOptionDisabled(2, 5);
+    expect(is5DisabledInGame2).toBe(true);
+    console.log('Confidence 5 is correctly disabled in game 2 dropdown');
+
+    // Take screenshot showing updated state
+    await page.screenshot({
+      path: path.join(DOWNLOAD_DIR, 'bowl-validation-option-re-enabled.png'),
+      fullPage: true
+    });
+
+    // === STEP 5: Select different confidence for game 2 and verify no duplicate warning ===
     await bowlPicksPage.selectSpreadPick(2, true);
-    await bowlPicksPage.selectConfidence(2, 1); // Same confidence as game 1 - DUPLICATE!
+    await bowlPicksPage.selectConfidence(2, 3); // Now we can select 3 since game 1 uses 5
     await bowlPicksPage.selectOutrightWinner(2, true);
 
     // Wait for UI to update
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(300);
 
-    // Take screenshot showing duplicate warning
-    await page.screenshot({ 
-      path: path.join(DOWNLOAD_DIR, 'bowl-validation-duplicate.png'),
-      fullPage: true 
+    // Verify no duplicate warning since we selected different values
+    const hasDuplicateWarning = await bowlPicksPage.hasDuplicateConfidenceWarning();
+    expect(hasDuplicateWarning).toBe(false);
+    console.log('No duplicate warning shown when unique confidence values are selected');
+
+    // Take screenshot of final state
+    await page.screenshot({
+      path: path.join(DOWNLOAD_DIR, 'bowl-validation-unique-selections.png'),
+      fullPage: true
     });
 
-    // Verify duplicate warning is shown
-    const hasDuplicateWarning = await bowlPicksPage.hasDuplicateConfidenceWarning();
-    expect(hasDuplicateWarning).toBe(true);
-
-    console.log('Duplicate confidence warning is displayed correctly');
+    console.log('Confidence dropdown disabled behavior works correctly');
   });
 });

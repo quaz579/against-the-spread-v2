@@ -146,28 +146,16 @@ jobs:
           lfs: false
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || '' }}
 
-      # Modify staticwebapp.config.json to allow anonymous access to API routes
-      # This enables test auth bypass (X-Test-User-Email header) for E2E tests
-      # Function code still validates auth - this just allows requests through SWA platform layer
-      # IMPORTANT: This modification is DEV ONLY - prod uses the original authenticated-only config
-      - name: Enable test auth bypass for Dev
+      # Use dev config which allows anonymous access to API routes for test auth bypass
+      # The dev config allows requests through SWA platform layer, then Functions validate X-Test-User-Email header
+      # Production deployments use the original staticwebapp.config.json which requires authentication
+      - name: Use dev staticwebapp config for test auth bypass
         run: |
-          CONFIG_FILE="src/AgainstTheSpread.Web/wwwroot/staticwebapp.config.json"
-          echo "Modifying $CONFIG_FILE to allow anonymous access for test auth bypass..."
-
-          # Use jq to add "anonymous" to allowedRoles arrays for API routes
-          jq '
-            .routes = [.routes[] |
-              if (.route | test("^/api/")) then
-                .allowedRoles = ((.allowedRoles // []) + ["anonymous"] | unique)
-              else
-                .
-              end
-            ]
-          ' "$CONFIG_FILE" > tmp.json && mv tmp.json "$CONFIG_FILE"
-
-          echo "Modified config:"
-          cat "$CONFIG_FILE"
+          echo "Replacing staticwebapp.config.json with dev version for test auth bypass..."
+          cp src/AgainstTheSpread.Web/wwwroot/staticwebapp.config.dev.json \
+             src/AgainstTheSpread.Web/wwwroot/staticwebapp.config.json
+          echo "Config replaced. Contents:"
+          cat src/AgainstTheSpread.Web/wwwroot/staticwebapp.config.json
 
       - name: Deploy to Azure Static Web Apps (Dev)
         uses: Azure/static-web-apps-deploy@v1

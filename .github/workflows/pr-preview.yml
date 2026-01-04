@@ -84,6 +84,17 @@ jobs:
 
           echo "Cleanup complete"
 
+      # Use dev config which allows anonymous access to API routes for test auth bypass
+      # The dev config allows requests through SWA platform layer, then Functions validate X-Test-User-Email header
+      # Production deployments use the original staticwebapp.config.json which requires authentication
+      - name: Use dev staticwebapp config for test auth bypass
+        run: |
+          echo "Replacing staticwebapp.config.json with dev version for test auth bypass..."
+          cp src/AgainstTheSpread.Web/wwwroot/staticwebapp.config.dev.json \
+             src/AgainstTheSpread.Web/wwwroot/staticwebapp.config.json
+          echo "Config replaced. Contents:"
+          cat src/AgainstTheSpread.Web/wwwroot/staticwebapp.config.json
+
       - name: Deploy to PR Preview Environment
         id: deploy
         uses: Azure/static-web-apps-deploy@v1
