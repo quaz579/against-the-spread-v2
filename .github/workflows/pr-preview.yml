@@ -45,9 +45,10 @@ jobs:
       - name: Get Preview URL
         id: get_url
         run: |
-          # Azure SWA preview URL format: https://<unique-id>-pr<number>.<region>.azurestaticapps.net
-          # For dev SWA: blue-smoke-0b4410710, region is centralus (2)
-          PREVIEW_URL="https://blue-smoke-0b4410710-pr${{ github.event.pull_request.number }}.2.azurestaticapps.net"
+          # Azure SWA preview URL format: https://<unique-id>-<buildId>.<region>.2.azurestaticapps.net
+          # For dev SWA: blue-smoke-0b4410710, region is centralus
+          # Build ID matches PR number for PR deployments
+          PREVIEW_URL="https://blue-smoke-0b4410710-${{ github.event.pull_request.number }}.centralus.2.azurestaticapps.net"
           echo "preview_url=$PREVIEW_URL" >> $GITHUB_OUTPUT
           echo "Preview URL: $PREVIEW_URL"
 
