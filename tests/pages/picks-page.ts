@@ -95,13 +95,14 @@ export class PicksPage {
     await this.waitForLoadingComplete();
 
     // Wait for Blazor to fully initialize the game selection UI
-    // This ensures the "Selected: 0 / 6" text is visible and event handlers are attached
+    // This ensures the "Selected: X / 6" text is visible and event handlers are attached
+    // Note: With pick restoration, the count may not be 0 if user has existing picks
     await this.page.waitForFunction(
       () => {
         const alertInfo = document.querySelector('.alert-info');
         if (!alertInfo) return false;
         const text = alertInfo.textContent || '';
-        return /Selected:\s*0\s*\/\s*6/.test(text);
+        return /Selected:\s*\d+\s*\/\s*6/.test(text);
       },
       { timeout: 30000 }
     );
@@ -137,16 +138,27 @@ export class PicksPage {
       throw new Error('No team buttons found on the page');
     }
 
-    console.log(`Found ${buttons.length} team buttons, need to select ${count} games`);
+    // Check current pick count - with pick restoration, some games may already be selected
+    const initialPickCount = await this.getSelectedPickCount();
+    console.log(`Found ${buttons.length} team buttons, current picks: ${initialPickCount}, target: ${count}`);
 
-    // Click on buttons until we have selected `count` games
+    // If we already have enough picks (e.g., from pick restoration), we're done
+    if (initialPickCount >= count) {
+      console.log(`Already have ${initialPickCount} picks, no need to select more`);
+      return;
+    }
+
+    const picksNeeded = count - initialPickCount;
+    console.log(`Need to select ${picksNeeded} more games`);
+
+    // Click on buttons until we have selected `count` games total
     // Each game has 2 buttons (favorite and underdog), so we need to skip to every other pair
     // Button layout: [game1-fav, game1-dog, game2-fav, game2-dog, ...]
     // We click index 0, 2, 4, 6... (first team of each game)
-    let selectedCount = 0;
+    let newSelectionsCount = 0;
     let gameIndex = 0; // Which game we're on (0, 1, 2, ...)
 
-    while (selectedCount < count && (gameIndex * 2) < buttons.length) {
+    while (newSelectionsCount < picksNeeded && (gameIndex * 2) < buttons.length) {
       // Click the first button of each game (favorite)
       const buttonIndex = gameIndex * 2;
       const button = buttons[buttonIndex];
@@ -161,8 +173,14 @@ export class PicksPage {
           const underdogButton = buttons[underdogIndex];
           const underdogDisabled = await underdogButton.isDisabled();
           if (!underdogDisabled) {
-            await this.clickButtonAndVerify(underdogButton, underdogIndex);
-            selectedCount++;
+            // Check if this game already has a selection (underdog might be selected)
+            const beforeCount = await this.getSelectedPickCount();
+            const result = await this.clickButtonAndVerify(underdogButton, underdogIndex);
+            const afterCount = await this.getSelectedPickCount();
+            // Only count as new selection if count increased (not deselected)
+            if (result && afterCount > beforeCount) {
+              newSelectionsCount++;
+            }
           }
         }
         gameIndex++;
@@ -171,6 +189,17 @@ export class PicksPage {
 
       // Get the current count from the UI before clicking
       const currentCount = await this.getSelectedPickCount();
+
+      // Check if this button is already selected (has checkmark in text)
+      const buttonText = await button.textContent() || '';
+      const isAlreadySelected = buttonText.includes('✓') || buttonText.includes('🔒');
+
+      if (isAlreadySelected) {
+        console.log(`Game ${gameIndex} is already selected, skipping`);
+        gameIndex++;
+        continue;
+      }
+
       const expectedCount = currentCount + 1;
 
       // Click the button with retry logic for Blazor WASM hydration timing
@@ -204,8 +233,8 @@ export class PicksPage {
       }
 
       if (clickSucceeded) {
-        selectedCount++;
-        console.log(`Selected game ${gameIndex}, total picks: ${selectedCount}`);
+        newSelectionsCount++;
+        console.log(`Selected game ${gameIndex}, new selections: ${newSelectionsCount}, total picks: ${currentCount + 1}`);
       } else {
         // Skip this game if button won't respond after retries
         console.log(`Game ${gameIndex} unresponsive after 3 attempts, skipping to next game`);
@@ -214,8 +243,9 @@ export class PicksPage {
       gameIndex++;
     }
 
-    if (selectedCount < count) {
-      throw new Error(`Could only select ${selectedCount} games, needed ${count}. Tried ${gameIndex} games out of ${Math.floor(buttons.length / 2)} available.`);
+    const finalCount = await this.getSelectedPickCount();
+    if (finalCount < count) {
+      throw new Error(`Could only select ${finalCount} games, needed ${count}. Made ${newSelectionsCount} new selections, tried ${gameIndex} games out of ${Math.floor(buttons.length / 2)} available.`);
     }
   }
 

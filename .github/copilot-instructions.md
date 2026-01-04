@@ -294,6 +294,39 @@ fix(web): correct game selection validation
 - Rate limiting on API endpoints
 - No sensitive data in responses or logs
 
+**CRITICAL: Azure Static Web Apps Route Security**
+
+The `staticwebapp.config.json` file controls route-level authentication at the SWA platform layer. This runs BEFORE requests reach Azure Functions code.
+
+**Never add "anonymous" to allowedRoles in the committed config files.** This makes the production environment completely insecure.
+
+```json
+// ❌ WRONG - This bypasses ALL authentication in production
+{
+  "route": "/api/*",
+  "allowedRoles": ["authenticated", "anonymous"]
+}
+
+// ✅ CORRECT - Only authenticated users can access API routes
+{
+  "route": "/api/*",
+  "allowedRoles": ["authenticated"]
+}
+```
+
+**How test auth bypass works (Dev environment only):**
+1. The committed `staticwebapp.config.json` requires authentication for API routes
+2. The CI workflow (`deploy.yml`) modifies the config at deploy time for Dev only
+3. Dev gets `anonymous` added to allowedRoles so test auth headers (X-Test-User-Email) can reach the Function code
+4. Production deploys the original secure config - no anonymous access
+
+**The test auth bypass pattern:**
+- SWA platform layer: Allows requests through (in Dev only via CI modification)
+- Azure Function code: `AuthHelper.cs` checks `ENABLE_TEST_AUTH` env var + `X-Test-User-Email` header
+- Production: `ENABLE_TEST_AUTH` is never set, so even if requests reached the code, they'd fail
+
+**If E2E tests fail with 302 redirects in CI:** The SWA platform is blocking requests before they reach Functions. Check that `deploy.yml` is properly modifying the config for Dev deployments.
+
 ### Documentation
 
 **Update documentation when:**
@@ -308,6 +341,13 @@ fix(web): correct game selection validation
 - `TESTING.md` - Testing strategy
 - `.agents.md` - Agent development guide
 - `implementation-plan.md` - Development roadmap
+- `docs/database-schema.mmd` - Database ER diagram (Mermaid format)
+
+**Database Schema Documentation:**
+When making changes to database models, migrations, or Entity Framework entities:
+- Update `docs/database-schema.mmd` to reflect the current schema
+- Include all tables, columns, data types, and relationships
+- Keep foreign key relationships accurate
 
 ### Performance
 
@@ -329,6 +369,41 @@ fix(web): correct game selection validation
 - Managed via Terraform (infrastructure/terraform/)
 - Do NOT manually modify Azure resources
 - Update Terraform files for infrastructure changes
+
+### Database Administration
+
+**Running SQL queries against Azure SQL Database:**
+
+Install Microsoft SQL tools via Homebrew (if not already installed):
+```bash
+# Check if sqlcmd is installed
+which sqlcmd || (brew tap microsoft/mssql-release https://github.com/Microsoft/homebrew-mssql-release && HOMEBREW_ACCEPT_EULA=Y brew install msodbcsql18 mssql-tools18)
+```
+
+Run queries using `sqlcmd`:
+```bash
+# Load credentials and run a query
+cd infrastructure/terraform
+source .credentials
+sqlcmd -S $DEV_SQL_SERVER -d $DEV_SQL_DATABASE -U $SQL_ADMIN_LOGIN -P "$SQL_ADMIN_PASSWORD" -N -C -Q "SELECT * FROM Users"
+
+# For production (use with caution!)
+sqlcmd -S $PROD_SQL_SERVER -d $PROD_SQL_DATABASE -U $SQL_ADMIN_LOGIN -P "$SQL_ADMIN_PASSWORD" -N -C -Q "SELECT * FROM Users"
+```
+
+**Database connection details:**
+- Dev: `sql-dev-cus-atsv2.database.windows.net` / `sqldb-dev-cus-atsv2`
+- Prod: `sql-prod-cus-atsv2.database.windows.net` / `sqldb-prod-cus-atsv2`
+- Credentials: `infrastructure/terraform/.credentials`
+
+**Tables (see `docs/database-schema.mmd` for full schema):**
+- `Users` - User accounts
+- `Games` - Weekly games with lines
+- `Picks` - User picks for weekly games
+- `BowlGames` - Bowl games with lines
+- `BowlPicks` - User picks for bowl games
+- `TeamAliases` - Team name mappings
+- `__EFMigrationsHistory` - EF Core migrations (do not modify)
 
 ### Task Acceptance Criteria
 
@@ -391,6 +466,26 @@ fix(web): correct game selection validation
 - ❌ Breaking Excel format compatibility
 - ❌ Adding unnecessary dependencies
 - ❌ Creating large, unfocused PRs
+- ❌ **Dismissing test failures as "flaky tests"** - This is an anti-pattern
+
+### Handling Test Failures
+
+**CRITICAL: Never dismiss test failures as "flaky tests" without investigation.**
+
+When tests fail (especially in CI):
+1. **Investigate the root cause** - Read the error messages, check logs, reproduce locally
+2. **Fix the underlying issue** - Don't assume it's intermittent without evidence
+3. **If truly flaky, fix the test** - A test that sometimes fails is a bug in the test
+4. **Ask for permission** - If a test is genuinely bad and needs to be skipped/deleted, ask the user first
+
+Common causes of "flaky" tests that are actually real bugs:
+- Environment configuration differences (local vs CI)
+- Race conditions in async code
+- Missing test data setup
+- Authentication/authorization issues
+- Network timeouts that indicate real problems
+
+Remember: Tests exist to catch bugs. A failing test is doing its job until proven otherwise.
 
 ### Success Indicators
 

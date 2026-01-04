@@ -135,6 +135,14 @@
             </div>
         }
 
+        @if (GetLockedPickCount() > 0)
+        {
+            <div class="alert alert-secondary mb-3">
+                <i class="bi bi-lock-fill me-2"></i>
+                <strong>@GetLockedPickCount() @(GetLockedPickCount() == 1 ? "pick is" : "picks are") locked</strong> and cannot be changed (games have started).
+            </div>
+        }
+
         <div class="row">
             @foreach (var game in GetGamesForDisplay())
             {
@@ -144,20 +152,23 @@
                 var favoriteColors = TeamColorService.GetTeamColors(game.Favorite);
                 var underdogColors = TeamColorService.GetTeamColors(game.Underdog);
                 var isLocked = game.IsLocked;
+                var hasLockedPick = isLocked && (isFavoriteSelected || isUnderdogSelected);
 
                 <div class="col-md-6 col-lg-4 mb-3">
-                    <div class="card h-100 @(isLocked ? "border-danger" : "")">
-                        <div class="card-body">
+                    <div class="card h-100 @(isLocked ? "border-secondary" : "") @(hasLockedPick ? "bg-light" : "")">
+                        <div class="card-body @(hasLockedPick ? "opacity-75" : "")">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <small class="text-muted">@gameDate</small>
                                 @if (isLocked)
                                 {
-                                    <span class="badge bg-danger">LOCKED</span>
+                                    <span class="badge @(hasLockedPick ? "bg-secondary" : "bg-danger")">
+                                        @(hasLockedPick ? "LOCKED ✓" : "LOCKED")
+                                    </span>
                                 }
                             </div>
                             <div class="d-grid gap-2">
-                                <button class="btn @GetButtonClass(isFavoriteSelected, favoriteColors)"
-                                    style="@GetButtonStyle(isFavoriteSelected, favoriteColors)"
+                                <button class="btn @GetButtonClass(isFavoriteSelected, isLocked, favoriteColors)"
+                                    style="@GetButtonStyle(isFavoriteSelected, isLocked, favoriteColors)"
                                     @onclick="() => TogglePick(game, game.Favorite)"
                                     disabled="@(isLocked || (!isFavoriteSelected && selectedPicks.Count >= 6))">
                                     <TeamLogo TeamName="@game.Favorite"
@@ -165,7 +176,7 @@
                                     @game.Favorite @game.Line
                                     @if (isFavoriteSelected)
                                     {
-                                        <span class="ms-1">&#10003;</span>
+                                        <span class="ms-1">@(isLocked ? "🔒" : "✓")</span>
                                     }
                                 </button>
 
@@ -173,8 +184,8 @@
                                     <small class="text-muted">@game.VsAt</small>
                                 </div>
 
-                                <button class="btn @GetButtonClass(isUnderdogSelected, underdogColors)"
-                                    style="@GetButtonStyle(isUnderdogSelected, underdogColors)"
+                                <button class="btn @GetButtonClass(isUnderdogSelected, isLocked, underdogColors)"
+                                    style="@GetButtonStyle(isUnderdogSelected, isLocked, underdogColors)"
                                     @onclick="() => TogglePick(game, game.Underdog)"
                                     disabled="@(isLocked || (!isUnderdogSelected && selectedPicks.Count >= 6))">
                                     <TeamLogo TeamName="@game.Underdog"
@@ -182,7 +193,7 @@
                                     @game.Underdog
                                     @if (isUnderdogSelected)
                                     {
-                                        <span class="ms-1">&#10003;</span>
+                                        <span class="ms-1">@(isLocked ? "🔒" : "✓")</span>
                                     }
                                 </button>
                             </div>
@@ -537,8 +548,23 @@
         return sanitized.TrimEnd();
     }
 
-    private string GetButtonClass(bool isSelected, TeamColors? teamColors)
+    private int GetLockedPickCount()
     {
+        if (gamesFromDb == null) return 0;
+
+        var games = GetGamesForDisplay();
+        return games.Count(g => g.IsLocked &&
+            (selectedPicks.Contains(g.Favorite) || selectedPicks.Contains(g.Underdog)));
+    }
+
+    private string GetButtonClass(bool isSelected, bool isLocked, TeamColors? teamColors)
+    {
+        // If selected on a locked game, use muted styling
+        if (isSelected && isLocked)
+        {
+            return "btn-secondary";
+        }
+
         // If selected, use bright green with custom styling
         if (isSelected)
         {
@@ -555,8 +581,14 @@
         return "team-color-btn";
     }
 
-    private string GetButtonStyle(bool isSelected, TeamColors? teamColors)
+    private string GetButtonStyle(bool isSelected, bool isLocked, TeamColors? teamColors)
     {
+        // If selected on a locked game, use muted green styling
+        if (isSelected && isLocked)
+        {
+            return "background-color: #90EE90; border: 2px solid #6c757d; color: #495057; font-weight: bold;";
+        }
+
         // If selected, use bright green with dark border
         if (isSelected)
         {

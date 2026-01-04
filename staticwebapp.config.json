@@ -6,15 +6,14 @@
     {
       "route": "/api/*",
       "allowedRoles": [
-        "anonymous"
+        "authenticated"
       ]
     },
     {
       "route": "/admin/*",
       "allowedRoles": [
         "authenticated",
-        "administrator",
-        "anonymous"
+        "administrator"
       ]
     }
   ],
