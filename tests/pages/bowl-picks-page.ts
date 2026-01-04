@@ -1,5 +1,8 @@
 import { Locator, Page } from '@playwright/test';
 
+/** Timeout for modal operations in milliseconds */
+const MODAL_TIMEOUT = 5000;
+
 /**
  * Page Object Model for the Bowl Picks page
  * Handles navigation and user interactions for making bowl game picks
@@ -43,6 +46,14 @@ export class BowlPicksPage {
     // Game selection elements
     this.gameCards = page.locator('.card').filter({ has: page.locator('.card-header') });
     this.downloadButton = page.getByRole('button', { name: /Generate Bowl Picks Excel/ });
+  }
+
+  /**
+   * Get the locator for a confidence row in the modal
+   * @param confidence - The confidence value to find
+   */
+  private getConfidenceRowLocator(confidence: number): Locator {
+    return this.page.locator(`.list-group-item:has(.confidence-badge-modal:text-is("${confidence}"))`);
   }
 
   /**
@@ -126,11 +137,10 @@ export class BowlPicksPage {
     await confidenceBtn.click();
     
     // Wait for modal to appear
-    await this.page.waitForSelector('.modal.show', { timeout: 5000 });
+    await this.page.waitForSelector('.modal.show', { timeout: MODAL_TIMEOUT });
     
     // Find the row with the target confidence and click MOVE HERE
-    // The modal shows games sorted by confidence, so we need to find the right row
-    const targetRow = this.page.locator(`.list-group-item:has(.confidence-badge-modal:text-is("${confidence}"))`);
+    const targetRow = this.getConfidenceRowLocator(confidence);
     const moveHereButton = targetRow.locator('button:text("MOVE HERE")');
     
     // Check if the button exists and is visible
@@ -145,7 +155,7 @@ export class BowlPicksPage {
     }
     
     // Wait for modal to close
-    await this.page.waitForSelector('.modal.show', { state: 'hidden', timeout: 5000 });
+    await this.page.waitForSelector('.modal.show', { state: 'hidden', timeout: MODAL_TIMEOUT });
   }
 
   /**
@@ -275,16 +285,16 @@ export class BowlPicksPage {
     // Open modal to check (we'll need to find a game to click)
     const firstGameBtn = this.gameCards.first().locator('.confidence-btn');
     await firstGameBtn.click();
-    await this.page.waitForSelector('.modal.show', { timeout: 5000 });
+    await this.page.waitForSelector('.modal.show', { timeout: MODAL_TIMEOUT });
     
     // Find the row with this confidence
-    const targetRow = this.page.locator(`.list-group-item:has(.confidence-badge-modal:text-is("${confidence}"))`);
+    const targetRow = this.getConfidenceRowLocator(confidence);
     const lockedBadge = targetRow.locator('.badge:text("LOCKED")');
     const isLocked = await lockedBadge.isVisible();
     
     // Close modal
     await this.page.locator('.modal .btn-secondary').click();
-    await this.page.waitForSelector('.modal.show', { state: 'hidden', timeout: 5000 });
+    await this.page.waitForSelector('.modal.show', { state: 'hidden', timeout: MODAL_TIMEOUT });
     
     return isLocked;
   }
