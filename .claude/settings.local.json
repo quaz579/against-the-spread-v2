@@ -146,7 +146,8 @@
       "mcp__github__pull_request_review_write",
       "mcp__github__add_issue_comment",
       "mcp__github__add_comment_to_pending_review",
-      "mcp__playwright__browser_tabs"
+      "mcp__playwright__browser_tabs",
+      "mcp__github__sub_issue_write"
     ]
   },
   "enableAllProjectMcpServers": true,
