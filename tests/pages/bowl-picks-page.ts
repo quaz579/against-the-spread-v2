@@ -1,5 +1,8 @@
 import { Locator, Page } from '@playwright/test';
 
+/** Timeout for modal operations in milliseconds */
+const MODAL_TIMEOUT = 5000;
+
 /**
  * Page Object Model for the Bowl Picks page
  * Handles navigation and user interactions for making bowl game picks
@@ -43,6 +46,15 @@ export class BowlPicksPage {
     // Game selection elements
     this.gameCards = page.locator('.card').filter({ has: page.locator('.card-header') });
     this.downloadButton = page.getByRole('button', { name: /Generate Bowl Picks Excel/ });
+  }
+
+  /**
+   * Get the locator for a confidence row in the modal
+   * @param confidence - The confidence value to find (0 displays as "-" in the UI)
+   */
+  private getConfidenceRowLocator(confidence: number): Locator {
+    const displayValue = confidence === 0 ? '-' : confidence.toString();
+    return this.page.locator(`.list-group-item:has(.confidence-badge-modal:text-is("${displayValue}"))`);
   }
 
   /**
@@ -114,14 +126,47 @@ export class BowlPicksPage {
   }
 
   /**
-   * Select confidence points for a specific game
+   * Select confidence points for a specific game using the modal.
+   * This method will first try to use the quick-assign buttons (for unused values).
+   * If the value is already assigned to another game, it will click MOVE HERE to swap.
    * @param gameNumber - Game number (1-indexed)
    * @param confidence - Confidence points to assign
    */
   async selectConfidence(gameNumber: number, confidence: number): Promise<void> {
     const gameCard = this.gameCards.nth(gameNumber - 1);
-    const confidenceSelect = gameCard.locator('select.form-select');
-    await confidenceSelect.selectOption(confidence.toString());
+    const confidenceBtn = gameCard.locator('.confidence-btn');
+    
+    // Click the confidence button to open modal
+    await confidenceBtn.click();
+    
+    // Wait for modal to appear
+    await this.page.waitForSelector('.modal.show', { timeout: MODAL_TIMEOUT });
+    
+    // First, try the quick-assign button (for unused confidence values)
+    const quickAssignBtn = this.page.locator(`.confidence-quick-btn:text-is("${confidence}")`);
+    if (await quickAssignBtn.isVisible()) {
+      await quickAssignBtn.click();
+      await this.page.waitForSelector('.modal.show', { state: 'hidden', timeout: MODAL_TIMEOUT });
+      return;
+    }
+    
+    // If not available as quick-assign, try to find the row with the target confidence and click MOVE HERE
+    const targetRow = this.getConfidenceRowLocator(confidence);
+    const moveHereButton = targetRow.locator('button:text("MOVE HERE")');
+    
+    // Check if the button exists and is visible
+    if (await moveHereButton.isVisible()) {
+      await moveHereButton.click();
+    } else {
+      // MOVE HERE button may not be visible if:
+      // - This is the currently selected game (shows "SELECTED" badge instead)
+      // - The game with this confidence is locked (shows "LOCKED" badge)
+      // In either case, just close the modal without making changes
+      await this.page.locator('.modal .btn-close').click();
+    }
+    
+    // Wait for modal to close
+    await this.page.waitForSelector('.modal.show', { state: 'hidden', timeout: MODAL_TIMEOUT });
   }
 
   /**
@@ -243,50 +288,75 @@ export class BowlPicksPage {
   }
 
   /**
-   * Check if a specific confidence option is disabled for a given game
-   * @param gameNumber - Game number (1-indexed)
+   * Check if a confidence value is assigned to a locked game.
+   * WARNING: This method has side effects - it opens and closes a modal.
    * @param confidence - Confidence points value to check
-   * @returns true if the option is disabled, false otherwise
+   * @returns true if the game with this confidence is locked, false otherwise
+   */
+  async checkIfConfidenceLocked(confidence: number): Promise<boolean> {
+    // Open modal to check (we'll need to find a game to click)
+    const firstGameBtn = this.gameCards.first().locator('.confidence-btn');
+    await firstGameBtn.click();
+    await this.page.waitForSelector('.modal.show', { timeout: MODAL_TIMEOUT });
+    
+    // Find the row with this confidence
+    const targetRow = this.getConfidenceRowLocator(confidence);
+    const lockedBadge = targetRow.locator('.badge:text("LOCKED")');
+    const isLocked = await lockedBadge.isVisible();
+    
+    // Close modal
+    await this.page.locator('.modal .btn-secondary').click();
+    await this.page.waitForSelector('.modal.show', { state: 'hidden', timeout: MODAL_TIMEOUT });
+    
+    return isLocked;
+  }
+
+  /**
+   * Get the current confidence value displayed for a specific game
+   * @param gameNumber - Game number (1-indexed)
+   * @returns The confidence value or 0 if not set
+   */
+  async getConfidenceValue(gameNumber: number): Promise<number> {
+    const gameCard = this.gameCards.nth(gameNumber - 1);
+    const confidenceBtn = gameCard.locator('.confidence-btn');
+    const text = await confidenceBtn.textContent() || '';
+    const match = text.match(/(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+  }
+
+  /**
+   * @deprecated The modal interface replaces dropdown-based confidence selection.
+   * Use checkIfConfidenceLocked() to check if a game is locked.
+   * @throws Error always - this method is not compatible with the modal interface.
    */
   async isConfidenceOptionDisabled(gameNumber: number, confidence: number): Promise<boolean> {
-    const gameCard = this.gameCards.nth(gameNumber - 1);
-    const confidenceSelect = gameCard.locator('select.form-select');
-    const option = confidenceSelect.locator(`option[value="${confidence}"]`);
-    const isDisabled = await option.getAttribute('disabled');
-    return isDisabled !== null;
+    throw new Error(
+      'isConfidenceOptionDisabled is deprecated: The modal interface replaces dropdown-based confidence selection. ' +
+      'Use checkIfConfidenceLocked() to check if a game is locked, or update your tests to use the new modal workflow.'
+    );
   }
 
   /**
-   * Get all disabled confidence options for a specific game
-   * @param gameNumber - Game number (1-indexed)
-   * @returns Array of disabled confidence values
+   * @deprecated The modal interface replaces dropdown-based confidence selection.
+   * Use checkIfConfidenceLocked() to check if a game is locked.
+   * @throws Error always - this method is not compatible with the modal interface.
    */
   async getDisabledConfidenceOptions(gameNumber: number): Promise<number[]> {
-    const gameCard = this.gameCards.nth(gameNumber - 1);
-    const confidenceSelect = gameCard.locator('select.form-select');
-    const disabledOptions = confidenceSelect.locator('option[disabled]');
-    const count = await disabledOptions.count();
-    const disabledValues: number[] = [];
-
-    for (let i = 0; i < count; i++) {
-      const value = await disabledOptions.nth(i).getAttribute('value');
-      if (value && value !== '0') {
-        disabledValues.push(parseInt(value, 10));
-      }
-    }
-    return disabledValues;
+    throw new Error(
+      'getDisabledConfidenceOptions is deprecated: The modal interface replaces dropdown-based confidence selection. ' +
+      'Use checkIfConfidenceLocked() to check if a game is locked, or update your tests to use the new modal workflow.'
+    );
   }
 
   /**
-   * Get the text content of a confidence option (to verify "(Used)" indicator)
-   * @param gameNumber - Game number (1-indexed)
-   * @param confidence - Confidence points value
-   * @returns The text content of the option
+   * @deprecated The modal interface shows confidence as badges, not dropdown options.
+   * Use getConfidenceValue() to get the current confidence for a game.
+   * @throws Error always - this method is not compatible with the modal interface.
    */
   async getConfidenceOptionText(gameNumber: number, confidence: number): Promise<string> {
-    const gameCard = this.gameCards.nth(gameNumber - 1);
-    const confidenceSelect = gameCard.locator('select.form-select');
-    const option = confidenceSelect.locator(`option[value="${confidence}"]`);
-    return await option.textContent() || '';
+    throw new Error(
+      'getConfidenceOptionText is deprecated: The modal interface shows confidence as badges, not dropdown options. ' +
+      'Use getConfidenceValue() to get the current confidence for a game.'
+    );
   }
 }

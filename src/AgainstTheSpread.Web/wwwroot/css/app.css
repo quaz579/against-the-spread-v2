@@ -227,3 +227,44 @@ code {
 .table-current-user td:first-child {
     padding-left: calc(0.5rem - 4px);
 }
+
+/* Confidence Reorder Modal Styles */
+.confidence-btn {
+    min-height: 60px;
+    transition: all 0.15s ease-in-out;
+}
+
+.confidence-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.confidence-badge-modal {
+    min-width: 50px;
+    font-size: 1.1rem;
+    padding: 0.6rem 0.8rem;
+}
+
+.confidence-quick-btn {
+    min-width: 40px;
+    font-weight: 600;
+}
+
+/* Mobile-friendly modal */
+@media (max-width: 576px) {
+    .modal-dialog.modal-lg {
+        margin: 0;
+        max-width: 100%;
+        min-height: 100vh;
+    }
+    
+    .modal-dialog.modal-lg .modal-content {
+        min-height: 100vh;
+        border-radius: 0;
+    }
+    
+    .modal-dialog.modal-lg .modal-body {
+        max-height: calc(100vh - 200px);
+        overflow-y: auto;
+    }
+}
