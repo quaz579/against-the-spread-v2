@@ -244,7 +244,7 @@ test.describe('Bowl Picks Complete Flow', () => {
     });
   });
 
-  test('Bowl Picks: confidence dropdowns disable already-used values and show (Used) indicator', async ({ page }) => {
+  test('Bowl Picks: modal-based confidence reorder allows swapping values between games', async ({ page }) => {
     const adminPage = new AdminPage(page);
     const bowlPicksPage = new BowlPicksPage(page);
     const bowlLinesFile = path.join(REFERENCE_DOCS, 'Bowl Lines Test.xlsx');
@@ -264,7 +264,7 @@ test.describe('Bowl Picks Complete Flow', () => {
     await bowlPicksPage.waitForLoadingComplete();
 
     // Enter name and load games
-    await bowlPicksPage.enterName('Validation Test User');
+    await bowlPicksPage.enterName('Modal Test User');
     await bowlPicksPage.selectYearAndContinue(TEST_YEAR);
 
     // Check if games are loaded
@@ -290,63 +290,58 @@ test.describe('Bowl Picks Complete Flow', () => {
     // Wait for UI to update
     await page.waitForTimeout(300);
 
-    // === STEP 2: Verify confidence 3 is disabled in game 2's dropdown ===
-    const isDisabledInGame2 = await bowlPicksPage.isConfidenceOptionDisabled(2, 3);
-    expect(isDisabledInGame2).toBe(true);
-    console.log('Confidence 3 is correctly disabled in game 2 dropdown');
+    // Verify game 1 has confidence 3
+    const game1Confidence = await bowlPicksPage.getConfidenceValue(1);
+    expect(game1Confidence).toBe(3);
+    console.log(`Game 1 confidence: ${game1Confidence}`);
 
-    // Verify the "(Used)" indicator is shown
-    const optionText = await bowlPicksPage.getConfidenceOptionText(2, 3);
-    expect(optionText).toContain('(Used)');
-    console.log(`Option text for confidence 3 in game 2: "${optionText.trim()}"`);
-
-    // Take screenshot showing disabled option
+    // Take screenshot showing confidence assigned
     await page.screenshot({
-      path: path.join(DOWNLOAD_DIR, 'bowl-validation-disabled-option.png'),
+      path: path.join(DOWNLOAD_DIR, 'bowl-modal-confidence-assigned.png'),
       fullPage: true
     });
 
-    // === STEP 3: Change game 1's confidence to a different value ===
-    await bowlPicksPage.selectConfidence(1, 5); // Change to confidence 5
-
-    // Wait for UI to update
-    await page.waitForTimeout(300);
-
-    // === STEP 4: Verify confidence 3 is now available in game 2's dropdown ===
-    const isStillDisabled = await bowlPicksPage.isConfidenceOptionDisabled(2, 3);
-    expect(isStillDisabled).toBe(false);
-    console.log('Confidence 3 is now available in game 2 dropdown after changing game 1');
-
-    // Verify confidence 5 is now disabled in game 2
-    const is5DisabledInGame2 = await bowlPicksPage.isConfidenceOptionDisabled(2, 5);
-    expect(is5DisabledInGame2).toBe(true);
-    console.log('Confidence 5 is correctly disabled in game 2 dropdown');
-
-    // Take screenshot showing updated state
-    await page.screenshot({
-      path: path.join(DOWNLOAD_DIR, 'bowl-validation-option-re-enabled.png'),
-      fullPage: true
-    });
-
-    // === STEP 5: Select different confidence for game 2 and verify no duplicate warning ===
+    // === STEP 2: Select confidence for game 2 (will swap with game 1) ===
     await bowlPicksPage.selectSpreadPick(2, true);
-    await bowlPicksPage.selectConfidence(2, 3); // Now we can select 3 since game 1 uses 5
+    await bowlPicksPage.selectConfidence(2, 3); // This swaps: game 1 gets game 2's value (0), game 2 gets 3
     await bowlPicksPage.selectOutrightWinner(2, true);
 
     // Wait for UI to update
     await page.waitForTimeout(300);
 
-    // Verify no duplicate warning since we selected different values
-    const hasDuplicateWarning = await bowlPicksPage.hasDuplicateConfidenceWarning();
-    expect(hasDuplicateWarning).toBe(false);
-    console.log('No duplicate warning shown when unique confidence values are selected');
+    // Verify the swap occurred
+    const game2ConfidenceAfterSwap = await bowlPicksPage.getConfidenceValue(2);
+    const game1ConfidenceAfterSwap = await bowlPicksPage.getConfidenceValue(1);
+    
+    console.log(`After swap - Game 1: ${game1ConfidenceAfterSwap}, Game 2: ${game2ConfidenceAfterSwap}`);
+    
+    // Game 2 should now have confidence 3
+    expect(game2ConfidenceAfterSwap).toBe(3);
+    // Game 1 should have whatever game 2 had before (0)
+    expect(game1ConfidenceAfterSwap).toBe(0);
 
-    // Take screenshot of final state
+    // Take screenshot showing swap result
     await page.screenshot({
-      path: path.join(DOWNLOAD_DIR, 'bowl-validation-unique-selections.png'),
+      path: path.join(DOWNLOAD_DIR, 'bowl-modal-confidence-swapped.png'),
       fullPage: true
     });
 
-    console.log('Confidence dropdown disabled behavior works correctly');
+    // === STEP 3: Verify no duplicate warning since swap maintains uniqueness ===
+    // Now assign a new confidence to game 1
+    await bowlPicksPage.selectConfidence(1, 5);
+    await page.waitForTimeout(300);
+
+    // Verify no duplicate warning
+    const hasDuplicateWarning = await bowlPicksPage.hasDuplicateConfidenceWarning();
+    expect(hasDuplicateWarning).toBe(false);
+    console.log('No duplicate warning shown - modal swap maintains uniqueness');
+
+    // Take screenshot of final state
+    await page.screenshot({
+      path: path.join(DOWNLOAD_DIR, 'bowl-modal-unique-selections.png'),
+      fullPage: true
+    });
+
+    console.log('Modal-based confidence reorder works correctly');
   });
 });

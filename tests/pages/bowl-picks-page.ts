@@ -50,10 +50,11 @@ export class BowlPicksPage {
 
   /**
    * Get the locator for a confidence row in the modal
-   * @param confidence - The confidence value to find
+   * @param confidence - The confidence value to find (0 displays as "-" in the UI)
    */
   private getConfidenceRowLocator(confidence: number): Locator {
-    return this.page.locator(`.list-group-item:has(.confidence-badge-modal:text-is("${confidence}"))`);
+    const displayValue = confidence === 0 ? '-' : confidence.toString();
+    return this.page.locator(`.list-group-item:has(.confidence-badge-modal:text-is("${displayValue}"))`);
   }
 
   /**
@@ -125,7 +126,9 @@ export class BowlPicksPage {
   }
 
   /**
-   * Select confidence points for a specific game using the modal
+   * Select confidence points for a specific game using the modal.
+   * This method will first try to use the quick-assign buttons (for unused values).
+   * If the value is already assigned to another game, it will click MOVE HERE to swap.
    * @param gameNumber - Game number (1-indexed)
    * @param confidence - Confidence points to assign
    */
@@ -139,7 +142,15 @@ export class BowlPicksPage {
     // Wait for modal to appear
     await this.page.waitForSelector('.modal.show', { timeout: MODAL_TIMEOUT });
     
-    // Find the row with the target confidence and click MOVE HERE
+    // First, try the quick-assign button (for unused confidence values)
+    const quickAssignBtn = this.page.locator(`.confidence-quick-btn:text-is("${confidence}")`);
+    if (await quickAssignBtn.isVisible()) {
+      await quickAssignBtn.click();
+      await this.page.waitForSelector('.modal.show', { state: 'hidden', timeout: MODAL_TIMEOUT });
+      return;
+    }
+    
+    // If not available as quick-assign, try to find the row with the target confidence and click MOVE HERE
     const targetRow = this.getConfidenceRowLocator(confidence);
     const moveHereButton = targetRow.locator('button:text("MOVE HERE")');
     
@@ -277,11 +288,12 @@ export class BowlPicksPage {
   }
 
   /**
-   * Check if a confidence value is assigned to a locked game
+   * Check if a confidence value is assigned to a locked game.
+   * WARNING: This method has side effects - it opens and closes a modal.
    * @param confidence - Confidence points value to check
    * @returns true if the game with this confidence is locked, false otherwise
    */
-  async isConfidenceLocked(confidence: number): Promise<boolean> {
+  async checkIfConfidenceLocked(confidence: number): Promise<boolean> {
     // Open modal to check (we'll need to find a game to click)
     const firstGameBtn = this.gameCards.first().locator('.confidence-btn');
     await firstGameBtn.click();
@@ -313,26 +325,38 @@ export class BowlPicksPage {
   }
 
   /**
-   * @deprecated Use getConfidenceValue instead - modal interface doesn't use disabled options
+   * @deprecated The modal interface replaces dropdown-based confidence selection.
+   * Use checkIfConfidenceLocked() to check if a game is locked.
+   * @throws Error always - this method is not compatible with the modal interface.
    */
   async isConfidenceOptionDisabled(gameNumber: number, confidence: number): Promise<boolean> {
-    console.warn('isConfidenceOptionDisabled is deprecated - modal interface uses LOCKED badges');
-    return false;
+    throw new Error(
+      'isConfidenceOptionDisabled is deprecated: The modal interface replaces dropdown-based confidence selection. ' +
+      'Use checkIfConfidenceLocked() to check if a game is locked, or update your tests to use the new modal workflow.'
+    );
   }
 
   /**
-   * @deprecated Use isConfidenceLocked instead - modal interface doesn't use disabled options
+   * @deprecated The modal interface replaces dropdown-based confidence selection.
+   * Use checkIfConfidenceLocked() to check if a game is locked.
+   * @throws Error always - this method is not compatible with the modal interface.
    */
   async getDisabledConfidenceOptions(gameNumber: number): Promise<number[]> {
-    console.warn('getDisabledConfidenceOptions is deprecated - modal interface uses LOCKED badges');
-    return [];
+    throw new Error(
+      'getDisabledConfidenceOptions is deprecated: The modal interface replaces dropdown-based confidence selection. ' +
+      'Use checkIfConfidenceLocked() to check if a game is locked, or update your tests to use the new modal workflow.'
+    );
   }
 
   /**
-   * @deprecated Modal interface shows confidence as badges, not dropdown options
+   * @deprecated The modal interface shows confidence as badges, not dropdown options.
+   * Use getConfidenceValue() to get the current confidence for a game.
+   * @throws Error always - this method is not compatible with the modal interface.
    */
   async getConfidenceOptionText(gameNumber: number, confidence: number): Promise<string> {
-    console.warn('getConfidenceOptionText is deprecated - modal interface uses badges');
-    return confidence.toString();
+    throw new Error(
+      'getConfidenceOptionText is deprecated: The modal interface shows confidence as badges, not dropdown options. ' +
+      'Use getConfidenceValue() to get the current confidence for a game.'
+    );
   }
 }

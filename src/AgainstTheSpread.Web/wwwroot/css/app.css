@@ -245,6 +245,11 @@ code {
     padding: 0.6rem 0.8rem;
 }
 
+.confidence-quick-btn {
+    min-width: 40px;
+    font-weight: 600;
+}
+
 /* Mobile-friendly modal */
 @media (max-width: 576px) {
     .modal-dialog.modal-lg {
@@ -259,7 +264,7 @@ code {
     }
     
     .modal-dialog.modal-lg .modal-body {
-        max-height: calc(100vh - 130px);
+        max-height: calc(100vh - 200px);
         overflow-y: auto;
     }
 }
