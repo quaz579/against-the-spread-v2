@@ -285,6 +285,7 @@
                     
                     <div class="modal-footer flex-column">
                         @{
+                            // ToList() is called once per render; list is small (max N games)
                             var availableValues = GetAvailableConfidenceValues().ToList();
                         }
                         @if (availableValues.Any())
@@ -555,10 +556,16 @@
     /// <summary>
     /// Directly assigns a confidence value to the selected game.
     /// Unlike SwapConfidence, this doesn't swap with another game.
+    /// Only allows assignment if the value is not already used.
     /// </summary>
+    /// <param name="confidence">The confidence value to assign.</param>
     private void AssignConfidence(int confidence)
     {
         if (selectedGameNumberForReorder == null)
+            return;
+        
+        // Safety check: don't assign if already used by another game
+        if (IsConfidencePointUsed(confidence, selectedGameNumberForReorder.Value))
             return;
         
         var pick = GetOrCreatePick(selectedGameNumberForReorder.Value);
