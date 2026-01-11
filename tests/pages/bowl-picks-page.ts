@@ -187,7 +187,9 @@ export class BowlPicksPage {
 
   /**
    * Make complete picks for all games
-   * Each game gets: spread pick (favorite), unique confidence, and outright winner (favorite)
+   * Each game gets: spread pick (alternate), and outright winner (alternate)
+   * Note: Confidence is auto-assigned based on game date order when games load.
+   * Games are displayed ordered by confidence, so game at position i has confidence i.
    * @param totalGames - Number of games to make picks for
    */
   async makeAllPicks(totalGames: number): Promise<void> {
@@ -195,8 +197,8 @@ export class BowlPicksPage {
       // Select spread pick (alternate between favorite and underdog)
       await this.selectSpreadPick(i, i % 2 === 1);
       
-      // Select unique confidence points (1 to totalGames)
-      await this.selectConfidence(i, i);
+      // Confidence is already auto-assigned based on game date order
+      // Games are displayed in confidence order, so no need to change confidence
       
       // Select outright winner (same as spread pick for simplicity)
       await this.selectOutrightWinner(i, i % 2 === 1);

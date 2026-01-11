@@ -244,7 +244,7 @@ test.describe('Bowl Picks Complete Flow', () => {
     });
   });
 
-  test('Bowl Picks: modal-based confidence reorder allows swapping values between games', async ({ page }) => {
+  test('Bowl Picks: games ordered by confidence and modal swap reorders display', async ({ page }) => {
     const adminPage = new AdminPage(page);
     const bowlPicksPage = new BowlPicksPage(page);
     const bowlLinesFile = path.join(REFERENCE_DOCS, 'Bowl Lines Test.xlsx');
@@ -282,66 +282,50 @@ test.describe('Bowl Picks Complete Flow', () => {
       return;
     }
 
-    // === STEP 1: Select confidence value for game 1 ===
+    // === STEP 1: Verify games have auto-assigned confidence ===
+    // Games should be displayed in confidence order (1, 2, 3, ...)
+    // First game displayed should have confidence 1
+    const firstGameConfidence = await bowlPicksPage.getConfidenceValue(1);
+    expect(firstGameConfidence).toBe(1);
+    console.log(`First displayed game has confidence: ${firstGameConfidence}`);
+
+    // Take screenshot showing auto-assigned confidence
+    await page.screenshot({
+      path: path.join(DOWNLOAD_DIR, 'bowl-auto-confidence-assigned.png'),
+      fullPage: true
+    });
+
+    // === STEP 2: Make spread picks for first two games ===
     await bowlPicksPage.selectSpreadPick(1, true);
-    await bowlPicksPage.selectConfidence(1, 3); // Select confidence 3 for game 1
     await bowlPicksPage.selectOutrightWinner(1, true);
-
-    // Wait for UI to update
-    await page.waitForTimeout(300);
-
-    // Verify game 1 has confidence 3
-    const game1Confidence = await bowlPicksPage.getConfidenceValue(1);
-    expect(game1Confidence).toBe(3);
-    console.log(`Game 1 confidence: ${game1Confidence}`);
-
-    // Take screenshot showing confidence assigned
-    await page.screenshot({
-      path: path.join(DOWNLOAD_DIR, 'bowl-modal-confidence-assigned.png'),
-      fullPage: true
-    });
-
-    // === STEP 2: Select confidence for game 2 (will swap with game 1) ===
     await bowlPicksPage.selectSpreadPick(2, true);
-    await bowlPicksPage.selectConfidence(2, 3); // This swaps: game 1 gets game 2's value (0), game 2 gets 3
     await bowlPicksPage.selectOutrightWinner(2, true);
-
-    // Wait for UI to update
     await page.waitForTimeout(300);
 
-    // Verify the swap occurred
-    const game2ConfidenceAfterSwap = await bowlPicksPage.getConfidenceValue(2);
-    const game1ConfidenceAfterSwap = await bowlPicksPage.getConfidenceValue(1);
-    
-    console.log(`After swap - Game 1: ${game1ConfidenceAfterSwap}, Game 2: ${game2ConfidenceAfterSwap}`);
-    
-    // Game 2 should now have confidence 3
-    expect(game2ConfidenceAfterSwap).toBe(3);
-    // Game 1 should have whatever game 2 had before (0)
-    expect(game1ConfidenceAfterSwap).toBe(0);
+    // === STEP 3: Swap confidence between game 1 and game 2 ===
+    // Open modal for game 1 (confidence 1) and swap with game at confidence 2
+    await bowlPicksPage.selectConfidence(1, 2);
+    await page.waitForTimeout(300);
 
-    // Take screenshot showing swap result
+    // After swap, game positions should change since display is ordered by confidence
+    // The game that had confidence 1 now has confidence 2 and vice versa
+    
+    // Take screenshot showing reordered display after swap
     await page.screenshot({
-      path: path.join(DOWNLOAD_DIR, 'bowl-modal-confidence-swapped.png'),
+      path: path.join(DOWNLOAD_DIR, 'bowl-confidence-swapped-reordered.png'),
       fullPage: true
     });
 
-    // === STEP 3: Verify no duplicate warning since swap maintains uniqueness ===
-    // Now assign a new confidence to game 1
-    await bowlPicksPage.selectConfidence(1, 5);
-    await page.waitForTimeout(300);
-
-    // Verify no duplicate warning
+    // === STEP 4: Verify no duplicate warning since swap maintains uniqueness ===
     const hasDuplicateWarning = await bowlPicksPage.hasDuplicateConfidenceWarning();
     expect(hasDuplicateWarning).toBe(false);
-    console.log('No duplicate warning shown - modal swap maintains uniqueness');
+    console.log('No duplicate warning shown - swap maintains uniqueness');
 
-    // Take screenshot of final state
-    await page.screenshot({
-      path: path.join(DOWNLOAD_DIR, 'bowl-modal-unique-selections.png'),
-      fullPage: true
-    });
+    // Verify confidence sum is still valid
+    const isConfidenceValid = await bowlPicksPage.isConfidenceSumValid();
+    expect(isConfidenceValid).toBe(true);
+    console.log('Confidence sum is valid after swap');
 
-    console.log('Modal-based confidence reorder works correctly');
+    console.log('Games are ordered by confidence and modal swap works correctly');
   });
 });

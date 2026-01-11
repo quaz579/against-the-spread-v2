@@ -110,17 +110,17 @@
             </ul>
         </div>
 
-        <!-- Bowl Games List -->
+        <!-- Bowl Games List - Ordered by confidence (lowest to highest) -->
         <div class="row">
-            @foreach (var game in bowlLines.Games.OrderBy(g => g.GameNumber))
+            @foreach (var game in bowlLines.Games.OrderBy(g => picks.TryGetValue(g.GameNumber, out var p) ? p.ConfidencePoints : 0))
             {
                 var pick = GetOrCreatePick(game.GameNumber);
 
                 <div class="col-12 mb-3">
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <span><strong>Game @game.GameNumber:</strong> @game.BowlName</span>
-                            <small class="text-muted">@game.GameDate.ToString("ddd M/d")</small>
+                            <span><strong>#@pick.ConfidencePoints</strong> - @game.BowlName</span>
+                            <small class="text-muted">@game.GameDate.ToString("ddd M/d h:mm tt")</small>
                         </div>
                         <div class="card-body">
                             <div class="row">
@@ -360,13 +360,18 @@
             }
             else
             {
-                // Initialize picks dictionary
+                // Initialize picks dictionary with auto-assigned confidence based on game date
+                // Games are sorted by date - first game gets confidence 1, last game gets highest confidence
                 picks.Clear();
-                foreach (var game in bowlLines.Games)
+                var gamesOrderedByDate = bowlLines.Games.OrderBy(g => g.GameDate).ToList();
+                var confidenceValue = 1;
+                
+                foreach (var game in gamesOrderedByDate)
                 {
                     picks[game.GameNumber] = new BowlPick
                     {
-                        GameNumber = game.GameNumber
+                        GameNumber = game.GameNumber,
+                        ConfidencePoints = confidenceValue++
                     };
                 }
             }
