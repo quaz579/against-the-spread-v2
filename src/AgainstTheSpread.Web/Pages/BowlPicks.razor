@@ -519,19 +519,36 @@
     /// - isLocked: Whether the game is past its start time
     /// - isSelected: Whether this is the game the user clicked to open the modal
     /// </returns>
+    /// <remarks>
+    /// The selected game (current pick being changed) is always displayed first.
+    /// Remaining games are sorted by confidence ascending (lowest first, highest last).
+    /// </remarks>
     private IEnumerable<(BowlGame game, BowlPick pick, bool isLocked, bool isSelected)> GetGamesForModal()
     {
         if (bowlLines == null)
             yield break;
         
-        foreach (var game in bowlLines.Games.OrderByDescending(g => 
-            picks.TryGetValue(g.GameNumber, out var p) ? p.ConfidencePoints : 0))
+        // First, yield the selected game (current pick being changed)
+        if (selectedGameNumberForReorder != null)
+        {
+            var selectedGame = bowlLines.Games.FirstOrDefault(g => g.GameNumber == selectedGameNumberForReorder.Value);
+            if (selectedGame != null)
+            {
+                var selectedPick = GetOrCreatePick(selectedGame.GameNumber);
+                var selectedIsLocked = IsGameLocked(selectedGame.GameNumber);
+                yield return (selectedGame, selectedPick, selectedIsLocked, isSelected: true);
+            }
+        }
+        
+        // Then yield remaining games ordered by confidence ascending (lowest first)
+        foreach (var game in bowlLines.Games
+            .Where(g => g.GameNumber != selectedGameNumberForReorder)
+            .OrderBy(g => picks.TryGetValue(g.GameNumber, out var p) ? p.ConfidencePoints : 0))
         {
             var pick = GetOrCreatePick(game.GameNumber);
             var isLocked = IsGameLocked(game.GameNumber);
-            var isSelected = game.GameNumber == selectedGameNumberForReorder;
             
-            yield return (game, pick, isLocked, isSelected);
+            yield return (game, pick, isLocked, isSelected: false);
         }
     }
 
