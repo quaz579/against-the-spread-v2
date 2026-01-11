@@ -2,6 +2,7 @@
 @using AgainstTheSpread.Core.Models
 @using AgainstTheSpread.Web.Services
 @using AgainstTheSpread.Web.Models
+@using Microsoft.AspNetCore.Components.Web
 @using Microsoft.JSInterop
 @inject ApiService ApiService
 @inject ITeamLogoService TeamLogoService
@@ -109,17 +110,17 @@
             </ul>
         </div>
 
-        <!-- Bowl Games List -->
+        <!-- Bowl Games List - Ordered by confidence (lowest to highest) -->
         <div class="row">
-            @foreach (var game in bowlLines.Games.OrderBy(g => g.GameNumber))
+            @foreach (var game in bowlLines.Games.OrderBy(g => picks.TryGetValue(g.GameNumber, out var p) ? p.ConfidencePoints : 0))
             {
                 var pick = GetOrCreatePick(game.GameNumber);
 
                 <div class="col-12 mb-3">
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <span><strong>Game @game.GameNumber:</strong> @game.BowlName</span>
-                            <small class="text-muted">@game.GameDate.ToString("ddd M/d")</small>
+                            <span><strong>#@pick.ConfidencePoints</strong> - @game.BowlName</span>
+                            <small class="text-muted">@game.GameDate.ToString("ddd M/d h:mm tt")</small>
                         </div>
                         <div class="card-body">
                             <div class="row">
@@ -157,23 +158,25 @@
                                     </div>
                                 </div>
 
-                                <!-- Confidence Points -->
+                                <!-- Confidence Points - Clickable to open modal -->
                                 <div class="col-md-2 mb-2">
-                                    <label class="form-label"><strong>Confidence</strong></label>
-                                    <select class="form-select @(IsConfidencePointDuplicate(pick.ConfidencePoints) && pick.ConfidencePoints > 0 ? "border-danger" : "")"
-                                        @onchange="@(e => HandleConfidenceChange(game.GameNumber, e))">
-                                        <option value="0" selected="@(pick.ConfidencePoints == 0)">Select...</option>
-                                        @for (int i = 1; i <= bowlLines.TotalGames; i++)
-                                        {
-                                            var confValue = i;
-                                            var isUsedByOther = IsConfidencePointUsed(confValue, game.GameNumber);
-                                            <option value="@confValue" 
-                                                    selected="@(pick.ConfidencePoints == confValue)"
-                                                    disabled="@isUsedByOther">
-                                                @confValue @(confValue == bowlLines.TotalGames ? "(Most Confident)" : confValue == 1 ? "(Least Confident)" : "")@(isUsedByOther ? " (Used)" : "")
-                                            </option>
-                                        }
-                                    </select>
+                                    <div class="confidence-selector">
+                                        <label class="form-label"><strong>Confidence</strong></label>
+                                        <button type="button" 
+                                                class="btn @(pick.ConfidencePoints > 0 ? "btn-success" : "btn-outline-secondary") w-100 confidence-btn @(IsConfidencePointDuplicate(pick.ConfidencePoints) && pick.ConfidencePoints > 0 ? "border-danger border-2" : "")"
+                                                @onclick="() => OpenConfidenceModal(game.GameNumber)"
+                                                disabled="@IsGameLocked(game.GameNumber)">
+                                            @if (pick.ConfidencePoints > 0)
+                                            {
+                                                <span class="fs-4 fw-bold">@pick.ConfidencePoints</span>
+                                                <br/><small class="text-white-50">pts</small>
+                                            }
+                                            else
+                                            {
+                                                    <span>Set confidence</span>
+                                            }
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <!-- Outright Winner -->
@@ -221,6 +224,95 @@
             </div>
         }
     }
+
+    @* Confidence Reorder Modal *@
+    @if (showConfidenceModal)
+    {
+        <div class="modal-backdrop fade show"></div>
+        
+        <div class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true" @onkeydown="HandleModalKeyDown">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">
+                            Reorder Confidence Points
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" @onclick="CloseConfidenceModal" aria-label="Close"></button>
+                    </div>
+                    
+                    <div class="modal-body p-0">
+                        <div class="list-group list-group-flush">
+                            @foreach (var (game, pick, isLocked, isSelected) in GetGamesForModal())
+                            {
+                                <div class="list-group-item d-flex justify-content-between align-items-center py-3 @(isSelected ? "list-group-item-primary border-start border-primary border-4" : "") @(isLocked && !isSelected ? "bg-light" : "")">
+                                    <div class="d-flex align-items-center">
+                                        <span class="badge @(pick.ConfidencePoints > 0 ? "bg-success" : "bg-secondary") rounded-pill me-3 confidence-badge-modal">
+                                            @(pick.ConfidencePoints > 0 ? pick.ConfidencePoints.ToString() : "-")
+                                        </span>
+                                        
+                                        <div>
+                                            <strong>@game.BowlName</strong>
+                                            <br/>
+                                            <small class="text-muted">
+                                                @game.Favorite @(game.Line >= 0 ? "+" : "")@game.Line vs @game.Underdog
+                                            </small>
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        @if (isSelected)
+                                        {
+                                            <span class="badge bg-primary px-3 py-2">SELECTED</span>
+                                        }
+                                        else if (isLocked)
+                                        {
+                                            <span class="badge bg-danger px-3 py-2">
+                                                <i class="bi bi-lock-fill me-1"></i>LOCKED
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <button type="button" class="btn btn-outline-success btn-sm px-3" 
+                                                    @onclick="() => SwapConfidence(game.GameNumber)">
+                                                MOVE HERE
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    
+                    <div class="modal-footer flex-column">
+                        @{
+                            // ToList() is called once per render; list is small (max N games)
+                            var availableValues = GetAvailableConfidenceValues().ToList();
+                        }
+                        @if (availableValues.Any())
+                        {
+                            <div class="w-100 mb-2">
+                                <small class="text-muted d-block mb-2">Quick assign (unused values):</small>
+                                <div class="d-flex flex-wrap gap-1">
+                                    @foreach (var value in availableValues)
+                                    {
+                                        <button type="button" class="btn btn-outline-primary btn-sm confidence-quick-btn"
+                                                @onclick="() => AssignConfidence(value)">
+                                            @value
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        <div class="w-100 text-end">
+                            <button type="button" class="btn btn-secondary" @onclick="CloseConfidenceModal">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
@@ -232,11 +324,21 @@
     private bool isDownloading = false;
     private string? errorMessage = null;
 
+    // Modal state
+    private bool showConfidenceModal = false;
+    private int? selectedGameNumberForReorder = null;
+
+    // Game locking (testing bypass)
+    private bool gameLockingDisabled = false;
+
     protected override async Task OnInitializedAsync()
     {
         // Initialize the team logo service and team color service
         await TeamLogoService.InitializeAsync(HttpClient);
         await TeamColorService.InitializeAsync(HttpClient);
+        
+        // Check if game locking is disabled (testing mode)
+        gameLockingDisabled = await ApiService.IsGameLockingDisabledAsync();
     }
 
     private async Task LoadBowlLines()
@@ -258,13 +360,18 @@
             }
             else
             {
-                // Initialize picks dictionary
+                // Initialize picks dictionary with auto-assigned confidence based on game date
+                // Games are sorted by date - first game gets confidence 1, last game gets highest confidence
                 picks.Clear();
-                foreach (var game in bowlLines.Games)
+                var gamesOrderedByDate = bowlLines.Games.OrderBy(g => g.GameDate).ToList();
+                var confidenceValue = 1;
+                
+                foreach (var game in gamesOrderedByDate)
                 {
                     picks[game.GameNumber] = new BowlPick
                     {
-                        GameNumber = game.GameNumber
+                        GameNumber = game.GameNumber,
+                        ConfidencePoints = confidenceValue++
                     };
                 }
             }
@@ -318,9 +425,175 @@
         GetOrCreatePick(gameNumber).OutrightWinner = team;
     }
 
+    /// <summary>
+    /// Determines if a game is locked (past its start time).
+    /// A game is considered locked when its GameDate is earlier than the current UTC time.
+    /// Locked games cannot have their confidence points changed.
+    /// </summary>
+    /// <param name="gameNumber">The game number to check.</param>
+    /// <returns>True if the game is locked; false if it can still be edited.</returns>
+    /// <remarks>
+    /// When gameLockingDisabled is true (e.g., in testing mode), all games are unlocked.
+    /// UTC time is used for comparison to ensure consistent behavior across timezones.
+    /// </remarks>
+    private bool IsGameLocked(int gameNumber)
+    {
+        if (gameLockingDisabled)
+            return false;
+        
+        var game = bowlLines?.Games.FirstOrDefault(g => g.GameNumber == gameNumber);
+        if (game == null)
+            return false;
+        
+        return game.GameDate < DateTime.UtcNow;
+    }
+
+    private void OpenConfidenceModal(int gameNumber)
+    {
+        selectedGameNumberForReorder = gameNumber;
+        showConfidenceModal = true;
+    }
+
+    private void CloseConfidenceModal()
+    {
+        showConfidenceModal = false;
+        selectedGameNumberForReorder = null;
+    }
+
+    /// <summary>
+    /// Handles keyboard events for the modal, specifically the Escape key to close it.
+    /// </summary>
+    private void HandleModalKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            CloseConfidenceModal();
+        }
+    }
+
+    /// <summary>
+    /// Swaps confidence points between the currently selected game and the target game.
+    /// After the swap completes, the modal is automatically closed.
+    /// </summary>
+    /// <param name="targetGameNumber">The game number to swap confidence with.</param>
+    /// <remarks>
+    /// If targetGameNumber equals the currently selected game, no swap occurs and the modal closes.
+    /// If either game has confidence 0, after the swap one game will have the other's confidence
+    /// and the other will have 0.
+    /// </remarks>
+    private void SwapConfidence(int targetGameNumber)
+    {
+        if (selectedGameNumberForReorder == null)
+            return;
+        
+        var sourceGameNumber = selectedGameNumberForReorder.Value;
+        
+        // Don't swap with self
+        if (sourceGameNumber == targetGameNumber)
+        {
+            CloseConfidenceModal();
+            return;
+        }
+        
+        // Get both picks
+        var sourcePick = GetOrCreatePick(sourceGameNumber);
+        var targetPick = GetOrCreatePick(targetGameNumber);
+        
+        // Swap confidence points
+        var tempConfidence = sourcePick.ConfidencePoints;
+        sourcePick.ConfidencePoints = targetPick.ConfidencePoints;
+        targetPick.ConfidencePoints = tempConfidence;
+        
+        CloseConfidenceModal();
+    }
+
+    /// <summary>
+    /// Returns all games for display in the confidence reorder modal.
+    /// Games are sorted by confidence points in descending order (highest first).
+    /// Games with no confidence assigned (0) appear at the bottom of the list.
+    /// </summary>
+    /// <returns>
+    /// A tuple containing:
+    /// - game: The bowl game data
+    /// - pick: The user's pick for this game
+    /// - isLocked: Whether the game is past its start time
+    /// - isSelected: Whether this is the game the user clicked to open the modal
+    /// </returns>
+    /// <remarks>
+    /// The selected game (current pick being changed) is always displayed first.
+    /// Remaining games are sorted by confidence ascending (lowest first, highest last).
+    /// </remarks>
+    private IEnumerable<(BowlGame game, BowlPick pick, bool isLocked, bool isSelected)> GetGamesForModal()
+    {
+        if (bowlLines == null)
+            yield break;
+        
+        // First, yield the selected game (current pick being changed)
+        if (selectedGameNumberForReorder != null)
+        {
+            var selectedGame = bowlLines.Games.FirstOrDefault(g => g.GameNumber == selectedGameNumberForReorder.Value);
+            if (selectedGame != null)
+            {
+                var selectedPick = GetOrCreatePick(selectedGame.GameNumber);
+                var selectedIsLocked = IsGameLocked(selectedGame.GameNumber);
+                yield return (selectedGame, selectedPick, selectedIsLocked, isSelected: true);
+            }
+        }
+        
+        // Then yield remaining games ordered by confidence ascending (lowest first)
+        foreach (var game in bowlLines.Games
+            .Where(g => g.GameNumber != selectedGameNumberForReorder)
+            .OrderBy(g => picks.TryGetValue(g.GameNumber, out var p) ? p.ConfidencePoints : 0))
+        {
+            var pick = GetOrCreatePick(game.GameNumber);
+            var isLocked = IsGameLocked(game.GameNumber);
+            
+            yield return (game, pick, isLocked, isSelected: false);
+        }
+    }
+
     private bool IsConfidencePointUsed(int confidence, int excludeGameNumber)
     {
         return picks.Any(p => p.Value.ConfidencePoints == confidence && p.Key != excludeGameNumber);
+    }
+
+    /// <summary>
+    /// Gets the list of available (unused) confidence values for the selected game.
+    /// Used to show quick-assign buttons in the modal.
+    /// </summary>
+    private IEnumerable<int> GetAvailableConfidenceValues()
+    {
+        if (bowlLines == null || selectedGameNumberForReorder == null)
+            yield break;
+        
+        for (int i = 1; i <= bowlLines.TotalGames; i++)
+        {
+            if (!IsConfidencePointUsed(i, selectedGameNumberForReorder.Value))
+            {
+                yield return i;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Directly assigns a confidence value to the selected game.
+    /// Unlike SwapConfidence, this doesn't swap with another game.
+    /// Only allows assignment if the value is not already used.
+    /// </summary>
+    /// <param name="confidence">The confidence value to assign.</param>
+    private void AssignConfidence(int confidence)
+    {
+        if (selectedGameNumberForReorder == null)
+            return;
+        
+        // Safety check: don't assign if already used by another game
+        if (IsConfidencePointUsed(confidence, selectedGameNumberForReorder.Value))
+            return;
+        
+        var pick = GetOrCreatePick(selectedGameNumberForReorder.Value);
+        pick.ConfidencePoints = confidence;
+        
+        CloseConfidenceModal();
     }
 
     private bool IsConfidencePointDuplicate(int confidence)
